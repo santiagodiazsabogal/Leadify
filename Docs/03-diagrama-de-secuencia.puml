@@ -1,0 +1,109 @@
+@startuml
+title Diagrama de Secuencia - Leadify: recomendación, llamada de Manuela y registro de la intención
+
+skinparam monochrome true
+skinparam backgroundColor white
+skinparam ClassBackgroundColor white
+skinparam ParticipantBackgroundColor white
+skinparam ActorBackgroundColor white
+skinparam DatabaseBackgroundColor white
+skinparam ActivityBackgroundColor white
+skinparam EntityBackgroundColor white
+skinparam NoteBackgroundColor white
+skinparam LegendBackgroundColor white
+skinparam SequenceGroupBackgroundColor white
+skinparam SequenceDividerBackgroundColor white
+hide circle
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontSize 13
+skinparam sequenceMessageAlign left
+skinparam maxMessageSize 220
+skinparam ParticipantPadding 12
+
+actor "Comprador" as C
+participant "Formulario web\n(JavaScript)" as F
+participant "API Leadify\n(FastAPI)" as API
+participant "Motor de\nrecomendación" as M
+database "Supabase\n(Postgres)" as DB
+participant "Dapta\n(agente Manuela)" as D
+
+== Identificarse ==
+C -> F : llena el carné (nombre, correo, teléfono, cédula)
+activate F
+F -> DB : buscar_resultados(cédula, teléfono)
+activate DB
+alt hay consulta guardada con los DOS datos
+  DB --> F : respuestas y recomendaciones anteriores
+  F --> C : muestra los proyectos sin repetir el cuestionario
+else no hay registro (o la base no responde)
+  DB --> F : vacío
+  deactivate DB
+  F --> C : inicia el cuestionario de 7 preguntas
+end
+
+== Recomendar proyectos ==
+C -> F : responde las 7 preguntas
+F -> API : POST /api/recomendar (perfil del comprador)
+activate API
+API -> M : recomendar(formulario)
+activate M
+M -> M : primer_filtro() por localidad y grafo de vecinas
+M -> M : modelo() Nearest Neighbors, top 18
+M -> M : Cota_minimaBG() reordena por esfuerzo de pago
+M -> M : post_arreglos() porcentaje de compatibilidad
+M --> API : proyectos recomendados
+deactivate M
+alt el motor responde
+  API --> F : apartamentos con compatibilidad
+  F --> C : lista de proyectos (de 6 en 6)
+  F -> DB : guardar_consulta(lead, respuestas, resultados)
+  note right of F
+    Una lista vacía no se guarda, para no
+    condenar al comprador a una pantalla vacía.
+  end note
+else error 400 o sin conexión
+  API --> F : error
+  deactivate API
+  F --> C : "Reintentar" o "Ver recomendaciones aproximadas"
+  C -> F : pide las aproximadas
+  F --> C : catálogo local marcado como aproximado
+end
+
+== Elegir proyecto y pedir la llamada ==
+C -> F : elige un proyecto y pide la llamada
+F -> DB : marcar_interes(cédula, teléfono, proyecto)
+F -> API : POST /api/llamar (lead + proyecto elegido)
+activate API
+API -> API : normalizar teléfono a +57 3XXXXXXXXX
+alt teléfono inválido
+  API --> F : 400 "no parece un móvil colombiano válido"
+  F --> C : pide corregir el número
+else teléfono válido
+  API -> D : POST webhook del flow (x-api-key)
+  API --> F : "Manuela está llamando"
+  deactivate API
+  D -> C : llamada de calificación
+  D <-> C : confirma datos, resuelve dudas, agenda la cita
+end
+
+== Resultado de la llamada ==
+D -> API : POST /webhooks/dapta/resultado (análisis post-llamada)
+activate API
+API -> API : guarda el resultado por teléfono (en memoria)
+deactivate API
+loop cada 4 s, hasta 45 intentos
+  F -> API : GET /api/llamar/resultado?telefono=...
+  API --> F : listo = falso / verdadero
+end
+F --> C : muestra el resumen de la llamada
+F -> DB : marcar_intencion(cédula, teléfono, proyecto, fecha_de_seguimiento, temperatura)
+activate DB
+DB -> DB : intencion_compra = (fecha_de_seguimiento no vacía)
+DB --> F : verdadero / falso
+deactivate DB
+deactivate F
+
+== Regla de negocio: pedir la llamada no cuenta como intención de compra; solo cuenta si se agendó la cita ==
+
+@enduml
