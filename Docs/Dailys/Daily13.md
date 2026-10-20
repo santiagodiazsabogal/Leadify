@@ -30,4 +30,5 @@
 
 # Evidencia
 
-<!-- Pegar aquí la captura del daily (16 OCT) -->
+<img width="698" height="357" alt="Daily8" src="https://github.com/user-attachments/assets/347ec6f2-e188-4ed1-aab9-bbf3760150c3" />
+
