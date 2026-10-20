@@ -27,4 +27,5 @@
 
 # Evidencia
 
-<!-- Pegar aquí la captura del daily (24 SEPT) -->
+<img width="686" height="348" alt="Daily7" src="https://github.com/user-attachments/assets/c6747fa1-3751-4fdc-b8fe-cd022bad7597" />
+
