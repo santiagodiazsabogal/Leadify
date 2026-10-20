@@ -5,20 +5,16 @@
 
   function createInitial() {
     return {
-      // splash | escarapela | quiz | result | confirmacion
+      // escarapela | quiz | result | confirmacion
       // 'result' es la pantalla de SELECCIÓN de proyectos (ya sin la casa) y
       // 'confirmacion' es el cierre. Se conserva el nombre 'result' para no
       // renombrar acciones/CSS que ya funcionan.
       //
-      // Ya no hay 'landing': esa era la portada clonada de Colsubsidio y se
-      // borró con el resto. La app entra directa al splash.
-      //
-      // EMBEBIDA (`?embed=1`, ver index.html) entra una pantalla más adentro,
-      // en la escarapela: quien llega ya pulsó "¡Empezar mi match!" y el
-      // splash sería una segunda puerta. No se salta también la escarapela
-      // porque es donde se piden nombre y teléfono; sin ella la confirmación
-      // cierra con un lead sin contacto y nada lo delata.
-      screen: window.GDF_EMBED ? 'escarapela' : 'splash',
+      // Se entra directo a la escarapela (los datos de contacto): no hay
+      // pantalla de bienvenida. No se salta también la escarapela porque es
+      // donde se piden nombre y teléfono; sin ella la confirmación cierra con
+      // un lead sin contacto y nada lo delata.
+      screen: 'escarapela',
       // Sin pantalla de elegir personaje: 'x' (avatar neutro) por defecto.
       gender: 'x', // 'f' | 'm' | 'x'
       nombre: '',
@@ -366,20 +362,6 @@
 
   function applyAction(state, action, ds) {
     switch (action) {
-      case 'goSplash':
-        // El splash NO EXISTE en la version embebida: el modal entra directo a
-        // la escarapela. Se bloquea aqui ademas de esconder el boton que lleva
-        // a el (ver escarapela en templates.js), porque esta accion la puede
-        // despachar cualquier otro camino y el fallo no se veria roto — se
-        // veria como una pantalla de bienvenida que aparece a destiempo.
-        if (window.GDF_EMBED) return false;
-        state.screen = 'splash';
-        break;
-
-      case 'goEscarapela':
-        state.screen = 'escarapela';
-        break;
-
       case 'setAfiliado':
         state.afiliado = ds.value;
         break;
@@ -690,10 +672,7 @@
         Object.keys(fresh).forEach(function (k) {
           state[k] = fresh[k];
         });
-        // "Empezar de nuevo" vuelve a la entrada. Cual es la entrada ya lo
-        // decide `createInitial()` —splash suelta, escarapela embebida— asi
-        // que aqui NO se fija a mano: escribir 'splash' devolvia al modal la
-        // pantalla de bienvenida que precisamente se salta al abrirlo.
+        // "Empezar de nuevo" vuelve a la entrada que decide `createInitial()`.
         state.screen = fresh.screen;
         break;
       }

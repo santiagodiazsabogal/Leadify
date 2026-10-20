@@ -42,11 +42,9 @@ button { cursor: pointer; }
 [tabindex='-1']:focus { outline: none; }
 
 /* ---------------------------------------------------------------- marca */
-.logo { display: inline-flex; align-items: center; gap: 10px; color: var(--navy); text-decoration: none; }
-.logo .iso { height: 34px; width: auto; display: block; }
-.logo .word { height: 29px; width: auto; display: block; }
-.logo.chico .iso { height: 22px; }
-.logo.chico .word { height: 19px; }
+.logo { display: inline-block; font-family: Sora, Inter, system-ui, sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: var(--navy); text-decoration: none; }
+.logo .punto { color: var(--red); }
+.logo.chico { font-size: 21px; }
 .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 /* ---------------------------------------------------------------- página centrada */

@@ -10,7 +10,7 @@ Leadify convierte visitantes anónimos de una constructora en citas agendadas co
 
 **La solución.**
 
-- Una landing para constructoras e inmobiliarias, con cuentas para cada empresa.
+- Cuentas para cada constructora o inmobiliaria.
 - Un cuestionario visual white-label en el que la persona arma su "casa ideal", para **comprar** o para **arrendar** (vivienda, oficina o bodega).
 - Un motor de recomendación que cruza el perfil del lead con el catálogo de la constructora y devuelve los proyectos más compatibles, cada uno con su porcentaje de compatibilidad.
 - Calificación automática del lead: "listo para asesor" o "en maduración".
@@ -43,9 +43,9 @@ El asesor recibe al lead con la cita ya puesta, no solo con un dato de contacto.
 - PL/pgSQL: las funciones que exponen la única API que ve el navegador, y el
   esquema de las cuentas de empresas (ver [`Database/migraciones/`](Database/migraciones/))
 
-**Frontend (landing, login y formulario interactivo)**
+**Frontend (login y formulario interactivo)**
 
-- TypeScript sin framework: el login (`Demo/frontend/src/auth/`, `src/paginas/`)
+- TypeScript sin framework: el login (`Demo/frontend/src/`)
 - JavaScript sin framework: el quiz son ~7.400 líneas de JS y ~5.000 de CSS propios
 - three.js: el plano del apartamento en 3D (`Demo/frontend/public/experiencia/js/plano3d/`)
 - Vite: servidor de desarrollo y empaquetado
@@ -59,7 +59,7 @@ git clone https://github.com/SaraCuervo/Leadify.git
 cd Leadify/Demo
 ```
 
-### La landing, el login y el formulario
+### El formulario y el login
 
 ```bash
 cd frontend
@@ -67,7 +67,7 @@ npm install
 npm run dev
 ```
 
-Abrir <http://localhost:5173>: es la landing, con "Ingresar al formulario" e "Iniciar sesión". El login está en `/acceso/` y la página de la cuenta en `/inicio/`. Si el puerto está ocupado, falla en vez de moverse a otro, para que la URL sea siempre la misma.
+Abrir <http://localhost:5173>: es el formulario a pantalla completa. El login de empresas está en `/acceso/` y la página de la cuenta en `/inicio/`. Si el puerto está ocupado, falla en vez de moverse a otro, para que la URL sea siempre la misma.
 
 En local el formulario llama al backend en `http://localhost:8100` (ver `public/experiencia/js/config.js`); si no está levantado, recomienda con el motor de reglas del navegador. El login, en local, guarda las cuentas en el navegador (proveedor de prueba). Para probarlo contra el backend real:
 
@@ -139,9 +139,9 @@ Leadify/
 │   │   ├── main.py                   Lanzador de consola del motor
 │   │   └── requirements.txt          Dependencias de Python
 │   ├── frontend/
-│   │   ├── index.html                La landing
+│   │   ├── index.html                Cascarón que sirve el formulario a pantalla completa
 │   │   ├── acceso/ · inicio/         El login de empresas y la página de la cuenta
-│   │   ├── src/                      La lógica del login (TypeScript) y la de la landing
+│   │   ├── src/                      La lógica del login (TypeScript)
 │   │   ├── vercel.json               Reenvía /api/cuentas y /api/sesion a Render (cookie del mismo sitio)
 │   │   └── public/experiencia/       El formulario: compra o arriendo, y el plano que se arma
 │   │       ├── js/ · css/            Lógica y estilos propios, sin framework

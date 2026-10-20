@@ -120,139 +120,12 @@
   }
 
 
-  /**
-   * La casita ilustrada. Hoy solo la usa splash(): la portada dejó de tener
-   * bloque propio al pasar a ser el clon de la página de Colsubsidio, cuyo
-   * hero lleva la casa 3D amarilla de ellos.
-   *
-   * Es UN SVG y no veinte <div> absolutos, y esa es la corrección de fondo:
-   * antes cada pieza (muro, tejado, chimenea, puerta, ventanas…) llevaba su
-   * propia copia de la animación de flotación, que incluía un `rotate(-3deg)`.
-   * Como cada elemento gira sobre SU centro y todos estaban en sitios
-   * distintos, en cuanto arrancaba la animación la casa se descuadraba: el
-   * tejado se salía de los muros, la chimenea quedaba flotando en el aire y la
-   * puerta se desbordaba por abajo. Se veía torcida.
-   *
-   * Con un solo `<g class="casa">` que flota, las piezas comparten origen y
-   * ya no pueden separarse — la casa se mueve entera. Y al ser coordenadas de
-   * un `viewBox`, la geometría es exacta: el tejado apoya en los muros, la
-   * chimenea nace DENTRO del faldón (se dibuja antes que el tejado, que le
-   * tapa la base) y la puerta se apoya en la línea del suelo.
-   */
-  function houseIllustration() {
-    return (
-      '<div class="gdf-hero-illustration">' +
-      '<div class="glow"></div>' +
-      '<svg class="gdf-casa" viewBox="0 0 320 240" role="img" aria-label="Ilustración de una casa">' +
-      // La sombra NO flota: se queda en el suelo y por eso la casa se lee
-      // como que se despega de él.
-      '<ellipse class="suelo" cx="160" cy="186" rx="76" ry="10" />' +
-      '<g class="casa">' +
-      // Chimenea primero: el tejado se pinta encima y le esconde la base.
-      '<rect x="190" y="44" width="16" height="46" fill="var(--tinta-media)" />' +
-      // Muros. El trazo va por dentro para que el ancho declarado sea el real.
-      '<rect x="104" y="100" width="112" height="76" rx="9"' +
-      ' fill="#fdfefe" stroke="var(--marca)" stroke-width="5" />' +
-      // Tejado: base exactamente sobre la línea de los muros (y=100), con
-      // alero de 14 a cada lado.
-      '<path d="M160 50 L232 102 L88 102 Z" fill="var(--acento)" />' +
-      '<rect x="86" y="98" width="148" height="9" rx="4.5" fill="var(--acento-oscuro)" />' +
-      // Remate de la chimenea, ya por encima del tejado.
-      '<rect x="186" y="38" width="24" height="7" rx="3" fill="var(--tinta)" />' +
-      '<circle class="humo h1" cx="198" cy="32" r="5" />' +
-      '<circle class="humo h2" cx="201" cy="28" r="4" />' +
-      // Asta y bandera, apoyadas en la cumbrera.
-      '<rect x="158.5" y="16" width="3" height="36" rx="1.5" fill="var(--tinta-suave)" />' +
-      '<path class="bandera" d="M161.5 20 L186 27 L161.5 34 Z" fill="var(--acento)" />' +
-      // Puerta en arco, apoyada en el suelo del muro.
-      '<path d="M145 173.5 V143 a15 15 0 0 1 30 0 V173.5 Z" fill="var(--acento)" />' +
-      '<circle cx="168" cy="158" r="2.6" fill="#fff" />' +
-      // Ventanas, dentro de los muros y a la misma altura.
-      ventanaSvg(120, 118) + ventanaSvg(178, 118) +
-      // Jardinera bajo la ventana izquierda.
-      '<rect x="116" y="138" width="28" height="9" rx="2" fill="#7a5b3a" />' +
-      '<circle cx="124" cy="136" r="3.2" fill="#ff8fab" />' +
-      '<circle cx="134" cy="135" r="3.2" fill="var(--acento)" />' +
-      '</g>' +
-      '</svg>' +
-      '<div class="accent-1"></div>' +
-      '<div class="accent-2"></div>' +
-      '<div class="accent-3"></div>' +
-      '<div class="accent-4"></div>' +
-      '</div>'
-    );
-  }
-
-  // Ventana de 22x20 con sus cruces, para no repetir el bloque dos veces.
-  function ventanaSvg(x, y) {
-    return (
-      '<g>' +
-      '<rect x="' + x + '" y="' + y + '" width="22" height="20" rx="3" fill="var(--marca)" />' +
-      '<rect x="' + (x + 10) + '" y="' + y + '" width="2" height="20" fill="#fff" />' +
-      '<rect x="' + x + '" y="' + (y + 9) + '" width="22" height="2" fill="#fff" />' +
-      '</g>'
-    );
-  }
-
-  // AQUI VIVIA LA BARRA DE ARRIBA: una franja del color de la marca, de lado a
-  // lado, con solo su nombre alineado a la derecha. Se quito a peticion.
-  //
-  // Con el diseño estandar dejo de aportar: era una banda naranja igual en las
-  // cuatro constructoras, y lo unico que la diferenciaba —el nombre— sigue
-  // apareciendo donde importa (el consentimiento de la escarapela, el enlace a
-  // la ficha oficial, el cierre). `logoHtml` se queda: lo usa el splash.
-
-  // AQUI VIVIA LA PORTADA. Eran ~400 lineas que clonaban
-  // colsubsidio.com/vivienda/proyectos: sus tres barras de cabecera, sus cuatro
-  // carruseles con su reparto por breakpoint y su footer de pestañas. Se fue
-  // entera con Colsubsidio, junto con `paginasPortada` y `guionesHtml`.
-  //
-  // La app entra ahora por el splash, que es de marca y no de nadie en
-  // concreto: se viste con el tenant que toque.
-
-  // Pantalla de entrada: sigue el spec visual de
-  // design/landing-hero-handoff/ (nav azul con logo, pastilla de campaña,
-  // casa ilustrada con CSS, un solo badge). El CTA salta directo a escarapela:
-  // ya no hay pantalla de elegir personaje.
-  function splash() {
-    return (
-      '<div class="gdf-screen gdf-hero">' +
-      // El splash tenia su propia barra de marca, igual que el resto de
-      // pantallas. Se fue con ellas: era la misma franja naranja con el nombre
-      // a la derecha, y el nombre ya sale dos lineas mas abajo, dentro de la
-      // frase de entrada ("...encaja contigo, con Cusezar").
-      '<main class="gdf-hero-main">' +
-      '<div class="gdf-hero-pill"><span class="dot"></span>Grúa del Futuro</div>' +
-      houseIllustration() +
-      '<h1>' + txt('splashTitulo', 'Construye tu sueño') + '</h1>' +
-      '<p class="gdf-hero-lead">' +
-      txt('splashLead', 'Responde jugando y encuentra tu vivienda ideal.') +
-      '</p>' +
-      '<p class="gdf-hero-quote">' +
-      txt('splashQuote', '&ldquo;Tú pones el sueño. Nosotros la grúa.&rdquo;') +
-      '</p>' +
-      '<button class="gdf-hero-cta" data-action="goEscarapela">' +
-      txt('splashCta', '¡Construir mi casa!') +
-      '</button>' +
-      '<div class="gdf-hero-badges">' +
-      '<span class="gdf-hero-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--marca)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l3 2"></path><path d="M9 2h6"></path></svg>2 minutos</span>' +
-      '</div>' +
-      '</main>' +
-      '</div>'
-    );
-  }
-
   // nombre/apellido/correo separados (no un solo "nombre completo"): el
   // backend de leads (contrato SenalBowl) los requiere como campos
   // independientes — ver js/leads.js.
   function isValidEmail(v) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   }
-
-  // El isotipo de Leadify (el mismo del favicon, la landing y el login), con la palabra al lado.
-  var ISOTIPO_LEADIFY =
-    '<svg viewBox="0 0 200 125" aria-hidden="true" focusable="false">' +
-    '<path fill-rule="evenodd" fill="#FF6259" d="M 163.6,122.6 L 142.9,122.3 L 142.0,113.9 L 138.2,103.9 L 133.1,97.9 L 130.9,97.1 L 123.2,97.3 L 114.5,101.6 L 111.6,102.1 L 107.3,105.6 L 104.9,106.4 L 95.1,114.3 L 94.0,114.3 L 86.1,107.2 L 77.8,101.6 L 75.4,101.1 L 69.3,97.6 L 65.9,97.9 L 64.8,97.1 L 61.9,97.1 L 59.5,98.9 L 58.4,98.9 L 54.3,103.9 L 49.5,115.3 L 49.0,121.9 L 48.3,122.6 L 28.7,122.6 L 27.8,122.2 L 27.5,120.1 L 26.7,106.0 L 24.3,99.9 L 19.4,94.7 L 17.0,93.4 L 14.6,94.2 L 3.6,83.4 L 2.5,81.5 L 21.2,63.1 L 86.9,2.5 L 87.9,2.8 L 104.9,18.2 L 108.9,20.3 L 115.0,26.4 L 117.9,27.5 L 127.8,33.9 L 132.5,35.5 L 140.2,33.6 L 144.6,30.3 L 145.2,27.1 L 147.3,23.1 L 144.8,19.0 L 173.7,12.9 L 197.1,9.2 L 197.5,11.2 L 194.0,28.7 L 187.1,56.0 L 186.5,56.4 L 182.7,53.8 L 174.2,54.8 L 170.3,57.2 L 165.9,63.2 L 164.8,69.9 L 165.6,71.4 L 166.1,79.2 L 165.6,80.2 L 166.1,86.9 L 165.6,90.3 L 166.1,91.1 L 165.3,115.3 L 164.8,122.2 L 163.6,122.6 Z M 93.9,77.0 L 94.6,76.4 L 98.3,76.6 L 103.1,72.9 L 103.6,73.4 L 105.4,72.9 L 107.2,68.0 L 108.1,68.1 L 109.7,65.7 L 111.0,66.0 L 111.7,65.3 L 111.2,61.1 L 112.0,60.3 L 109.4,58.0 L 107.2,57.4 L 107.4,55.8 L 104.2,53.7 L 103.7,51.3 L 102.5,50.9 L 101.5,49.0 L 100.9,49.3 L 95.6,45.0 L 94.3,45.6 L 91.9,41.6 L 86.9,41.6 L 85.8,40.8 L 84.2,42.1 L 83.4,40.8 L 82.6,42.4 L 81.5,42.1 L 80.6,43.0 L 80.2,45.3 L 78.9,44.2 L 77.8,46.1 L 76.8,46.1 L 69.7,52.3 L 70.0,53.4 L 67.3,56.0 L 68.1,56.8 L 67.6,57.6 L 68.1,58.4 L 67.1,60.0 L 68.0,61.2 L 70.7,61.0 L 77.0,64.1 L 78.1,65.5 L 79.4,65.7 L 83.1,70.0 L 85.5,71.3 L 87.9,74.8 L 89.5,74.5 L 91.6,76.1 L 93.0,75.8 L 92.8,76.5 L 93.9,77.0 Z"/></svg>';
 
   /** Un campo del registro de Leadify: rótulo, input y su mensaje de error. */
   function campoRegistro(c, valor) {
@@ -291,7 +164,7 @@
     var logoRegistro = demoActiva
       ? '<div class="gdf-registro-logo gdf-registro-logo--demo' + (demoActiva.fondoLogo === 'oscuro' ? ' sobre-marca' : '') +
         '" role="img" aria-label="' + esc(nombreMarca()) + '">' + logoHtml('gdf-registro-logo-img') + '</div>'
-      : '<div class="gdf-registro-logo" role="img" aria-label="Leadify">' + ISOTIPO_LEADIFY + '<span aria-hidden="true">Leadify</span></div>';
+      : '<div class="gdf-registro-logo" role="img" aria-label="Leadify">' + '<span aria-hidden="true">Leadify<b class="gdf-registro-punto">.</b></span></div>';
     return (
       '<div class="gdf-screen gdf-escarapela gdf-registro">' +
       '<div class="gdf-registro-caja">' +
@@ -356,16 +229,6 @@
 
     return (
       '<div class="gdf-screen gdf-escarapela">' +
-      // EMBEBIDA NO HAY ATRAS, porque no hay nada detras. La escarapela es la
-      // primera pantalla dentro del modal (ver `screen` en state.js), asi que
-      // este boton llevaba al splash —"Encuentra tu proximo hogar"—, una
-      // pantalla de bienvenida que dentro de un modal sobra: quien pulso
-      // "¡Empezar mi match!" ya dijo que queria empezar. Se colaba solo por
-      // aqui, y quien lo pulsaba se quedaba en una puerta anterior a la que
-      // ya habia cruzado.
-      (window.GDF_EMBED
-        ? ''
-        : '<button class="gdf-back-btn" data-action="goSplash">' + ic('flecha-izquierda') + ' Atrás</button>') +
       '<div class="kicker"><div class="eyebrow">TU CARNÉ DE CONSTRUCTOR</div><h2>Primero, preséntate</h2></div>' +
       '<div class="gdf-carnet">' +
       '<div class="clip"></div>' +
@@ -2582,9 +2445,6 @@
   function renderApp(state, derived) {
     var screenHtml;
     switch (state.screen) {
-      case 'splash':
-        screenHtml = splash();
-        break;
       case 'escarapela':
         screenHtml = escarapela(state);
         break;
@@ -2598,9 +2458,8 @@
         screenHtml = confirmacion(state, derived);
         break;
       default:
-        // Incluye el 'landing' de la portada borrada: si algo dejo ese valor
-        // guardado, se entra por el splash en vez de a una pantalla en blanco.
-        screenHtml = splash();
+        // Un valor viejo guardado ('splash', 'landing') entra por la escarapela.
+        screenHtml = escarapela(state);
     }
     // `data-embed` cuelga del shell y no del <body> porque es este nodo el
     // que lleva el grid de dos columnas del media query de 900px: la regla que

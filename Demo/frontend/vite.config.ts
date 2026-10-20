@@ -1,8 +1,8 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 
-// Tres páginas: la landing (/), el login (/acceso/) y la página de la cuenta (/inicio/). El formulario vive en
-// public/experiencia/ y Vite lo sirve tal cual: es JS vanilla que no pasa por el build.
+// Tres páginas: el cascarón que muestra el formulario (/), el login (/acceso/) y la página de la cuenta (/inicio/).
+// El formulario vive en public/experiencia/ y Vite lo sirve tal cual: es JS vanilla que no pasa por el build.
 //
 // `strictPort`: si 5173 está ocupado, FALLA en vez de moverse solo, para que la URL sea siempre la misma.
 export default defineConfig({

@@ -20,7 +20,6 @@ modelo. Los cambios se aplican en orden con los archivos de
 | Archivo | Qué hace |
 |---|---|
 | [`20261020120000_leads_por_telefono_y_correo.sql`](migraciones/20261020120000_leads_por_telefono_y_correo.sql) | Pasa los leads de cédula a **teléfono + correo**. Las tablas por cédula, con sus filas, se mueven tal cual al esquema cerrado `archivo_cedula`: no se borra nada. Crea de nuevo `leads`, `consultas`, `intereses` y las cuatro funciones del navegador. |
-| [`20261020120100_solicitudes_demo.sql`](migraciones/20261020120100_solicitudes_demo.sql) | La tabla `solicitudes_demo` y la función `solicitar_demo`, que usa "Agenda una demo" de la landing. |
 | [`20261020120200_cuentas_login.sql`](migraciones/20261020120200_cuentas_login.sql) | El esquema `acceso` del login de empresas: `cuentas`, `sesiones` e `intentos`. |
 
 [`esquema/`](esquema/) es el esquema anterior, por cédula, tal como se aplicó

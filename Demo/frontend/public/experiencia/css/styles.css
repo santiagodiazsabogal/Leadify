@@ -6322,17 +6322,16 @@ html[data-marca='leadify'] .gdf-project-acciones .gdf-project-llamar:hover {
   margin-bottom: 30px;
   color: var(--tinta);
 }
-.gdf-registro-logo svg {
-  display: block;
-  width: auto;
-  height: 26px;
-}
 .gdf-registro-logo span {
   font-family: var(--fuente-titulos);
-  font-size: 21px;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1;
+}
+.gdf-registro-punto {
+  color: #ff6259;
+  font-weight: inherit;
 }
 .gdf-registro .eyebrow {
   margin: 0 0 10px;

@@ -2,11 +2,9 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <!-- El formulario es una herramienta, no una página de contenido: no se indexa
-         (la landing es la que aparece en Google). Ver también vercel.json. -->
+    <!-- El formulario se sirve dentro del cascarón de la raíz (frontend/index.html): esta URL no se indexa. -->
     <meta name="robots" content="noindex" />
-    <!-- El isotipo de Leadify, en SVG (antes era un emoji dentro de un SVG). -->
-    <link rel="icon" type="image/svg+xml" href="assets/favicon-leadify.svg?v=2" />
+    <link rel="icon" type="image/svg+xml" href="assets/favicon-leadify.svg?v=3" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Encuentra tu próximo hogar</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -28,7 +26,7 @@
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
       crossorigin=""
     />
-    <link rel="stylesheet" href="css/styles.css?v=137" />
+    <link rel="stylesheet" href="css/styles.css?v=138" />
   </head>
   <body>
     <div id="root"></div>
@@ -136,8 +134,8 @@
     <script src="js/arriendo.js?v=1"></script>
     <!-- Textos de autorización y la regla de la hoja "Antes de llamarte" (antes de templates y state). -->
     <script src="js/consentimiento.js?v=2"></script>
-    <script src="js/templates.js?v=128"></script>
-    <script src="js/state.js?v=117"></script>
+    <script src="js/templates.js?v=130"></script>
+    <script src="js/state.js?v=118"></script>
     <!-- plano 3D. El bundle de three va aparte porque la app no tiene bundler,
          y TODOS estos van despues del document.write de arriba: moverlo o
          ponerle defer borra el documento entero. -->
