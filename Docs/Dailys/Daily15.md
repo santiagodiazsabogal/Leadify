@@ -29,4 +29,5 @@
 
 # Evidencia
 
-<!-- Pegar aquí la captura del daily (20 OCT) -->
+<img width="739" height="1600" alt="655205999-b47db590-e8d1-4424-9906-1bcd04d2cf0f" src="https://github.com/user-attachments/assets/83590021-88b3-42f2-b1ba-6f45d4ffd578" />
+
