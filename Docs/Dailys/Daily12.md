@@ -30,5 +30,4 @@
 - Las migraciones se numeran por fecha y se aplican en orden.
 
 # Evidencia
-
-<!-- Pegar aquí la captura del daily (15 OCT) -->
+<img width="704" height="1524" alt="Daily5" src="https://github.com/user-attachments/assets/7f9138b2-a386-4e7b-9a5d-48e39e2302c9" />
