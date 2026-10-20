@@ -25,4 +25,4 @@
 
 # Evidencia
 
-<!-- Pegar aquí la captura del daily (21 SEPT) -->
+<img width="704" height="1524" alt="Daily5" src="https://github.com/user-attachments/assets/bc3c0ba8-8bbd-4363-b92c-eabbe72be73a" />
