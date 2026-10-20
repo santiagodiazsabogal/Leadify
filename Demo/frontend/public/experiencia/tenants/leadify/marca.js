@@ -5,8 +5,8 @@ window.GDF_MARCA = {
   "constructora": "",
   "identidad": {
     "nombre": "Leadify",
-    "dominio": "leadify.co",
-    "sitio": "https://leadify.co",
+    "dominio": "leadify-kappa.vercel.app",
+    "sitio": "https://leadify-kappa.vercel.app",
     "logo": "",
     "marcaChica": ""
   },

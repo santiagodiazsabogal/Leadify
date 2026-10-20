@@ -1,4 +1,4 @@
-/* Puente con la experiencia de Machea.
+/* Puente con la experiencia de Leadify.
    Es el unico modulo que conoce a la anfitriona; el resto no sabe que existe.
 
    La anfitriona llama a `actualizar(state, derived)` desde `updatePlantaDOM`,
@@ -11,6 +11,12 @@
   var escena = null;
   var apagado = false;
   var ultimaClave = null;
+
+  /* Seleccion EN CURSO de la pregunta de amenidades. La anfitriona no la pasa
+     a `state` hasta "Continuar" (ver `entornoSeleccion` en main.js), pero el
+     barrio tiene que reaccionar a cada chip, no al salir de la pregunta. */
+  var seleccionEntorno = [];
+  var enPreguntaEntorno = false;
 
   /* Se cae al plano 2D de recortes —que ya funciona— en vez de mostrar un
      hueco. El 3D es una mejora, no un requisito. */
@@ -52,6 +58,26 @@
   }
 
   function actualizar(state, derived) {
+    /* La pregunta de ubicacion (`escena: 'mapa'`) es del mapa de Leaflet: el 3D
+       empieza en la siguiente. Volver a ella desde la 2 no repinta la escena
+       (updateQuizDOM la conserva), asi que aqui se suelta el lienzo y la clase
+       para que el 2D quede como en version_0.5. Y la camara se reinicia AQUI
+       porque "Empezar de nuevo" cae en esta pregunta y ya no llega al
+       `paso < 1` de abajo.
+
+       'operacion' (`escena: 'vacio'`, Comprar/Arrendar -- ver data.js) es
+       la MISMA situacion un paso antes: todavia no hay nada que mostrar (ni
+       siquiera se sabe el camino), asi que se suelta el lienzo igual. */
+    if (derived && derived.q && (derived.q.escena === 'mapa' || derived.q.escena === 'vacio')) {
+      var hostMapa = document.querySelector('.gdf-scene');
+      if (hostMapa) hostMapa.classList.remove('con-plano3d');
+      if (escena) {
+        if (escena.canvas.parentNode) escena.canvas.parentNode.removeChild(escena.canvas);
+        escena.resetCamara();
+      }
+      return false;
+    }
+
     var esc = crear();
     if (!esc) return false;
 
@@ -63,22 +89,63 @@
     host.classList.add('con-plano3d');
 
     var answers = (state && state.answers) || {};
+    enPreguntaEntorno = !!(state && state.screen === 'quiz' &&
+      derived && derived.q && derived.q.id === 'entorno_deseado');
     // `qi` es el indice de la pregunta en curso, o sea cuantas van contestadas.
     var paso = Math.max(0, Number(state && state.qi) || 0);
-    if (paso < 1) return true;   // todavia no hay nada que construir
+    if (paso < 1) {
+      // Volver al principio (p. ej. "Empezar de nuevo") no debe heredar la
+      // vista cenital del intento anterior: es estado de modulo, no del plano.
+      esc.resetCamara();
+    }
+
+    /* No hay early return en paso 0: `construirPlan` con paso 0 ya da rooms y
+       walls vacios pero `meta.ancho/fondo` con la huella completa estimada, y
+       `aplicarPlan` con eso solo levanta la losa del lote (ver cajaDelPlano).
+       Antes de esto la escena se quedaba en blanco hasta la primera respuesta
+       — el lote debe existir antes que la vivienda, no aparecer con ella. */
 
     /* Reconstruir el plano en cada repintado seria tirar el CSG a la basura sin
        motivo: la anfitriona llama aqui tambien por cambios que no tocan las
        respuestas. */
     var clave = paso + '|' + JSON.stringify(answers);
-    if (clave === ultimaClave) return true;
-    ultimaClave = clave;
-
-    esc.aplicarPlan(G.construirPlan(answers, paso));
+    if (clave !== ultimaClave) {
+      ultimaClave = clave;
+      esc.aplicarPlan(G.construirPlan(answers, paso));
+    }
+    esc.fijarEntorno(listaEntorno(answers));
     return true;
   }
 
+  /* El barrio aparece al ELEGIR la primera amenidad, no al llegar a la
+     pregunta: llegar ahi es consecuencia de contestar la localidad, y el
+     entorno disparado en ese momento se leia como efecto de la localidad.
+     Una vez contestada (aun sin elegir nada, es opcional) se queda hasta el
+     final; volver atras de ella lo retira. Cada chip hace un vistazo: la
+     camara se aleja, muestra el barrio 2 s y vuelve a la casa. */
+  function listaEntorno(answers) {
+    if (enPreguntaEntorno) return seleccionEntorno.length ? seleccionEntorno : null;
+    return Array.isArray(answers.entorno_deseado) ? answers.entorno_deseado : null;
+  }
+
+  // La anfitriona la llama en cada chip que se marca o se quita.
+  function seleccionarEntorno(lista) {
+    seleccionEntorno = (lista || []).slice();
+    if (escena && enPreguntaEntorno) escena.fijarEntorno(listaEntorno({}), true);
+  }
+
+  // Sube la camara a vista cenital una unica vez, al terminar el quiz. `cb` es
+  // obligatorio para la anfitriona: solo despues de que llega es seguro pasar
+  // a la pantalla de resultados sin cortar la animacion a medio camino. Si no
+  // hay escena (3D no soportado), avisa de inmediato para no bloquear el flujo.
+  function finalizarVistaSuperior(duracion, cb) {
+    if (!escena) { if (cb) cb(); return; }
+    escena.finalizarVistaSuperior(duracion, cb);
+  }
+
   window.GDF3D.actualizar = actualizar;
+  window.GDF3D.finalizarVistaSuperior = finalizarVistaSuperior;
+  window.GDF3D.seleccionarEntorno = seleccionarEntorno;
   window.GDF3D.activo = function () { return !!escena && !apagado; };
   window.GDF3D.escena = function () { return escena; };
 })();

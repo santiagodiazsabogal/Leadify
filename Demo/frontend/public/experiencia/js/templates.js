@@ -12,6 +12,14 @@
     });
   }
 
+  // Un icono de interfaz (js/iconos-ui.js). El formulario no usa emojis ni
+  // simbolos tipograficos (decision de Diego, 2026-10-02): todo pictograma
+  // sale de aqui. Va SIEMPRE fuera de esc(): es HTML, no texto.
+  function ic(nombre, opciones) {
+    var I = window.GDF.iconosUI;
+    return I ? I.icono(nombre, opciones) : '';
+  }
+
   // -------------------------------------------------------------------------
   // LA MARCA ACTIVA
   // -------------------------------------------------------------------------
@@ -28,8 +36,30 @@
     return window.GDF_MARCA || {};
   }
 
+  /** Aviso bajo la confirmación de la llamada cuando es una demo con marca: Manuela se
+   *  presentará como asistente de esa empresa, y tiene que quedar dicho que es una demostración. */
+  function notaDemo() {
+    var d = marca().demo;
+    if (!d) return '';
+    return '<p class="gdf-demo-nota">Esta llamada es una demostración: Manuela se presentará como la asistente virtual que Leadify configuró para <strong>' +
+      esc(d.nombre) + '</strong>.</p>';
+  }
+
+  // Textos de Leadify fijados en el código (T11, TEXTOS.md sección 4): su
+  // manifiesto (tenants/leadify/marca.js) es generado y todavía dice
+  // "Demostración" y "Ver ficha oficial ↗". Ganan sobre el manifiesto solo en
+  // Leadify; las constructoras siguen leyendo el suyo.
+  var COPY_LEADIFY = {
+    fichaOficial: 'Ver ficha oficial del proyecto',
+    sinPlanos: 'Aún no tenemos los planos de este proyecto.',
+    disclaimerCatalogo:
+      'Datos de área, habitaciones, baños y precio tomados de las fichas publicadas por cada constructora. ' +
+      'Precios y disponibilidad pueden cambiar: confírmalos con el asesor.',
+  };
+
   /** Un texto del manifiesto, o el de Colsubsidio si la marca no lo declara. */
   function txt(clave, porDefecto) {
+    if (marca().slug === 'leadify' && COPY_LEADIFY[clave] != null) return COPY_LEADIFY[clave];
     var c = marca().copy || {};
     return c[clave] != null ? c[clave] : porDefecto;
   }
@@ -75,24 +105,25 @@
    * reglas de matching que miran `a.afiliado` quedan muertas solas, sin tocar
    * su lógica.
    */
+  // Las notas de afiliación ("Afiliado Colsubsidio", "No afiliado — cupo
+  // 10%…") son la regla 90/10 de una caja de compensación. qualification.js
+  // las escribe para todas las marcas; se pintan solo donde se pregunta la
+  // afiliación. El PUNTAJE de ese bloque no se toca aquí: es lógica de
+  // calificación y la decide quien lleva qualification.js.
+  function notaVisible(nota) {
+    return pideAfiliacion() || !/afiliad/i.test(nota);
+  }
+
   function pideAfiliacion() {
     var n = marca().negocio || {};
     return n.tipo ? n.tipo === 'caja' : true;
   }
 
-  function findGender(v) {
-    var GENDERS = window.GDF.data.GENDERS;
-    for (var i = 0; i < GENDERS.length; i++) {
-      if (GENDERS[i].v === v) return GENDERS[i];
-    }
-    return GENDERS[GENDERS.length - 1];
-  }
 
   /**
-   * La casita ilustrada. HOY NO LA LLAMA NADIE: su único sitio era splash(), y
-   * el splash se borró al quedar la experiencia sola, sin landing delante (ver
-   * `screen` en state.js). Se conserva porque es la pieza de marca de la
-   * entrada, y recuperarla es volver a llamarla desde una pantalla.
+   * La casita ilustrada. Hoy solo la usa splash(): la portada dejó de tener
+   * bloque propio al pasar a ser el clon de la página de Colsubsidio, cuyo
+   * hero lleva la casa 3D amarilla de ellos.
    *
    * Es UN SVG y no veinte <div> absolutos, y esa es la corrección de fondo:
    * antes cada pieza (muro, tejado, chimenea, puerta, ventanas…) llevaba su
@@ -169,26 +200,47 @@
   // Con el diseño estandar dejo de aportar: era una banda naranja igual en las
   // cuatro constructoras, y lo unico que la diferenciaba —el nombre— sigue
   // apareciendo donde importa (el consentimiento de la escarapela, el enlace a
-  // la ficha oficial, el cierre). `logoHtml` se queda escrito, aunque desde
-  // que se fue el splash no lo llame nadie: es la pieza que resuelve el logo
-  // del tenant, y volver a usarla es una linea.
+  // la ficha oficial, el cierre). `logoHtml` se queda: lo usa el splash.
 
   // AQUI VIVIA LA PORTADA. Eran ~400 lineas que clonaban
   // colsubsidio.com/vivienda/proyectos: sus tres barras de cabecera, sus cuatro
   // carruseles con su reparto por breakpoint y su footer de pestañas. Se fue
   // entera con Colsubsidio, junto con `paginasPortada` y `guionesHtml`.
   //
-  // AQUI VIVIA EL SPLASH. Era la pantalla de entrada —pastilla de campaña, la
-  // casita, "Encuentra tu próximo hogar", el botón "¡Construir mi casa!" y el
-  // badge de 2 minutos— y se fue al quedar la experiencia sola: dentro de la
-  // landing ya era una segunda puerta (el modal la saltaba con `embed=1`), y
-  // sin landing delante es la única puerta, que es peor — tres frases entre el
-  // usuario y el formulario. Ahora se entra rellenando los datos.
-  //
-  // Sus textos siguen en el manifiesto de cada tenant (`splashTitulo`,
-  // `splashLead`, `splashQuote`, `splashCta`) y su CSS en `.gdf-hero*`: son
-  // datos y estilo, no estorban quietos, y son justo lo que haria falta si la
-  // entrada vuelve.
+  // La app entra ahora por el splash, que es de marca y no de nadie en
+  // concreto: se viste con el tenant que toque.
+
+  // Pantalla de entrada: sigue el spec visual de
+  // design/landing-hero-handoff/ (nav azul con logo, pastilla de campaña,
+  // casa ilustrada con CSS, un solo badge). El CTA salta directo a escarapela:
+  // ya no hay pantalla de elegir personaje.
+  function splash() {
+    return (
+      '<div class="gdf-screen gdf-hero">' +
+      // El splash tenia su propia barra de marca, igual que el resto de
+      // pantallas. Se fue con ellas: era la misma franja naranja con el nombre
+      // a la derecha, y el nombre ya sale dos lineas mas abajo, dentro de la
+      // frase de entrada ("...encaja contigo, con Cusezar").
+      '<main class="gdf-hero-main">' +
+      '<div class="gdf-hero-pill"><span class="dot"></span>Grúa del Futuro</div>' +
+      houseIllustration() +
+      '<h1>' + txt('splashTitulo', 'Construye tu sueño') + '</h1>' +
+      '<p class="gdf-hero-lead">' +
+      txt('splashLead', 'Responde jugando y encuentra tu vivienda ideal.') +
+      '</p>' +
+      '<p class="gdf-hero-quote">' +
+      txt('splashQuote', '&ldquo;Tú pones el sueño. Nosotros la grúa.&rdquo;') +
+      '</p>' +
+      '<button class="gdf-hero-cta" data-action="goEscarapela">' +
+      txt('splashCta', '¡Construir mi casa!') +
+      '</button>' +
+      '<div class="gdf-hero-badges">' +
+      '<span class="gdf-hero-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--marca)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l3 2"></path><path d="M9 2h6"></path></svg>2 minutos</span>' +
+      '</div>' +
+      '</main>' +
+      '</div>'
+    );
+  }
 
   // nombre/apellido/correo separados (no un solo "nombre completo"): el
   // backend de leads (contrato SenalBowl) los requiere como campos
@@ -197,21 +249,86 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   }
 
-  function escarapela(state) {
-    var genderObj = findGender(state.gender);
-    var canStart = !!(
-      state.nombre.trim() &&
-      state.apellido.trim() &&
-      state.correo.trim() &&
-      isValidEmail(state.correo.trim()) &&
-      state.telefono.trim() &&
-      state.cedula.trim() &&
-      state.consent
+  // El isotipo de Leadify (el mismo del favicon, la landing y el login), con la palabra al lado.
+  var ISOTIPO_LEADIFY =
+    '<svg viewBox="0 0 200 125" aria-hidden="true" focusable="false">' +
+    '<path fill-rule="evenodd" fill="#FF6259" d="M 163.6,122.6 L 142.9,122.3 L 142.0,113.9 L 138.2,103.9 L 133.1,97.9 L 130.9,97.1 L 123.2,97.3 L 114.5,101.6 L 111.6,102.1 L 107.3,105.6 L 104.9,106.4 L 95.1,114.3 L 94.0,114.3 L 86.1,107.2 L 77.8,101.6 L 75.4,101.1 L 69.3,97.6 L 65.9,97.9 L 64.8,97.1 L 61.9,97.1 L 59.5,98.9 L 58.4,98.9 L 54.3,103.9 L 49.5,115.3 L 49.0,121.9 L 48.3,122.6 L 28.7,122.6 L 27.8,122.2 L 27.5,120.1 L 26.7,106.0 L 24.3,99.9 L 19.4,94.7 L 17.0,93.4 L 14.6,94.2 L 3.6,83.4 L 2.5,81.5 L 21.2,63.1 L 86.9,2.5 L 87.9,2.8 L 104.9,18.2 L 108.9,20.3 L 115.0,26.4 L 117.9,27.5 L 127.8,33.9 L 132.5,35.5 L 140.2,33.6 L 144.6,30.3 L 145.2,27.1 L 147.3,23.1 L 144.8,19.0 L 173.7,12.9 L 197.1,9.2 L 197.5,11.2 L 194.0,28.7 L 187.1,56.0 L 186.5,56.4 L 182.7,53.8 L 174.2,54.8 L 170.3,57.2 L 165.9,63.2 L 164.8,69.9 L 165.6,71.4 L 166.1,79.2 L 165.6,80.2 L 166.1,86.9 L 165.6,90.3 L 166.1,91.1 L 165.3,115.3 L 164.8,122.2 L 163.6,122.6 Z M 93.9,77.0 L 94.6,76.4 L 98.3,76.6 L 103.1,72.9 L 103.6,73.4 L 105.4,72.9 L 107.2,68.0 L 108.1,68.1 L 109.7,65.7 L 111.0,66.0 L 111.7,65.3 L 111.2,61.1 L 112.0,60.3 L 109.4,58.0 L 107.2,57.4 L 107.4,55.8 L 104.2,53.7 L 103.7,51.3 L 102.5,50.9 L 101.5,49.0 L 100.9,49.3 L 95.6,45.0 L 94.3,45.6 L 91.9,41.6 L 86.9,41.6 L 85.8,40.8 L 84.2,42.1 L 83.4,40.8 L 82.6,42.4 L 81.5,42.1 L 80.6,43.0 L 80.2,45.3 L 78.9,44.2 L 77.8,46.1 L 76.8,46.1 L 69.7,52.3 L 70.0,53.4 L 67.3,56.0 L 68.1,56.8 L 67.6,57.6 L 68.1,58.4 L 67.1,60.0 L 68.0,61.2 L 70.7,61.0 L 77.0,64.1 L 78.1,65.5 L 79.4,65.7 L 83.1,70.0 L 85.5,71.3 L 87.9,74.8 L 89.5,74.5 L 91.6,76.1 L 93.0,75.8 L 92.8,76.5 L 93.9,77.0 Z"/></svg>';
+
+  /** Un campo del registro de Leadify: rótulo, input y su mensaje de error. */
+  function campoRegistro(c, valor) {
+    return (
+      '<div class="gdf-reg-campo" data-campo="' + c.campo + '">' +
+      '<label class="gdf-field-label" for="' + c.id + '">' + c.rotulo + '</label>' +
+      '<input class="gdf-input" id="' + c.id + '" type="' + c.tipo + '"' +
+      (c.modo ? ' inputmode="' + c.modo + '"' : '') +
+      ' autocomplete="' + c.auto + '" placeholder="' + c.ejemplo + '"' +
+      ' aria-describedby="' + c.id + 'Error" value="' + esc(valor) + '" />' +
+      '<p class="gdf-reg-error" id="' + c.id + 'Error">' + ic('alerta', { tam: 14 }) + '<span>' + c.error + '</span></p>' +
+      '</div>'
     );
+  }
+
+  /**
+   * El registro de Leadify, variante B "formulario limpio" (T4b; mockup en
+   * design/formulario-rediseno/mockups/registro.html, textos de TEXTOS.md
+   * sección 1). Sin carné, sin avatar y sin cédula. La validación en vivo la
+   * pinta updateStartButton() en main.js sin repintar la pantalla, para no
+   * perder el foco; aquí solo sale el estado inicial.
+   */
+  function registroLeadify(state) {
+    var v = window.GDF.state.validarRegistro(state);
+    var campos = [
+      { campo: 'nombre', id: 'nombreInput', rotulo: 'Nombres', tipo: 'text', auto: 'given-name', ejemplo: 'Ej: Ana', error: 'Escribe tu nombre.' },
+      { campo: 'apellido', id: 'apellidoInput', rotulo: 'Apellidos', tipo: 'text', auto: 'family-name', ejemplo: 'Ej: Ruiz', error: 'Escribe tus apellidos.' },
+      { campo: 'correo', id: 'correoInput', rotulo: 'Correo electrónico', tipo: 'email', modo: 'email', auto: 'email', ejemplo: 'ana.ruiz@correo.com', error: 'Revisa el correo: debe verse como nombre@dominio.com' },
+      { campo: 'telefono', id: 'telefonoInput', rotulo: 'Teléfono (WhatsApp)', tipo: 'tel', modo: 'tel', auto: 'tel-national', ejemplo: '300 123 4567', error: 'Escribe un celular de 10 dígitos.' },
+    ];
+    var valores = { nombre: state.nombre, apellido: state.apellido, correo: state.correo, telefono: state.telefono };
+    // En una demo con marca ("Pruébalo con tu marca") va el logo de la empresa, o su
+    // nombre escrito si no hay logo. Un logo claro (casi blanco) se pone sobre el color
+    // de la marca: sobre el blanco del formulario desaparecería.
+    var demoActiva = marca().demo;
+    var logoRegistro = demoActiva
+      ? '<div class="gdf-registro-logo gdf-registro-logo--demo' + (demoActiva.fondoLogo === 'oscuro' ? ' sobre-marca' : '') +
+        '" role="img" aria-label="' + esc(nombreMarca()) + '">' + logoHtml('gdf-registro-logo-img') + '</div>'
+      : '<div class="gdf-registro-logo" role="img" aria-label="Leadify">' + ISOTIPO_LEADIFY + '<span aria-hidden="true">Leadify</span></div>';
+    return (
+      '<div class="gdf-screen gdf-escarapela gdf-registro">' +
+      '<div class="gdf-registro-caja">' +
+      logoRegistro +
+      '<p class="eyebrow">Tus datos</p>' +
+      '<h2>Cuéntanos quién eres</h2>' +
+      '<p class="gdf-registro-sub">Después te hacemos unas preguntas sobre la vivienda que buscas.</p>' +
+      '<div class="gdf-registro-fila">' +
+      campoRegistro(campos[0], valores.nombre) +
+      campoRegistro(campos[1], valores.apellido) +
+      '</div>' +
+      campoRegistro(campos[2], valores.correo) +
+      campoRegistro(campos[3], valores.telefono) +
+      '<div class="gdf-reg-campo" data-campo="consent">' +
+      '<label class="gdf-consent" data-action="toggleConsent" role="checkbox" tabindex="0"' +
+      ' aria-checked="' + (state.consent ? 'true' : 'false') + '" aria-describedby="consentError">' +
+      '<span class="box' + (state.consent ? ' checked' : '') + '">' + (state.consent ? ic('check') : '') + '</span>' +
+      // El texto legal sale de js/consentimiento.js (versionado), no del copy de la marca.
+      '<span class="text">' + window.GDF.consentimiento.registro().html + '</span>' +
+      '</label>' +
+      '<p class="gdf-reg-error" id="consentError">' + ic('alerta', { tam: 14 }) + '<span>Necesitamos tu autorización para continuar.</span></p>' +
+      '</div>' +
+      '<button class="gdf-btn-primary' + (v.ok ? ' enabled' : '') + '" data-action="startQuiz" aria-disabled="' + (v.ok ? 'false' : 'true') + '">' +
+      'Empezar ' + ic('flecha-derecha') + '</button>' +
+      '<p class="gdf-hint" aria-live="polite">' + (v.ok ? 'Todo listo.' : 'Completa los campos para continuar.') + '</p>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  function escarapela(state) {
+    if (marca().slug === 'leadify') return registroLeadify(state);
+    var canStart = window.GDF.state.validarRegistro(state).ok;
 
     var affiliateBadge =
       pideAfiliacion() && state.afiliado !== null
-        ? '<span class="affiliate-badge">' + (state.afiliado === 'Sí' ? 'Afiliado ✓' : 'No afiliado') + '</span>'
+        ? '<span class="affiliate-badge">' + (state.afiliado === 'Sí' ? 'Afiliado ' + ic('check') : 'No afiliado') + '</span>'
         : '';
 
     // La pregunta de afiliación solo existe en una caja de compensación. En una
@@ -239,10 +356,16 @@
 
     return (
       '<div class="gdf-screen gdf-escarapela">' +
-      // NO HAY ATRAS, porque no hay nada detras: la escarapela es la primera
-      // pantalla (ver `screen` en state.js). Aqui habia un boton al splash y se
-      // fue con el — un "← Atrás" que lleva a una pantalla que no existe no se
-      // ve roto, se ve como una puerta anterior a la que ya se cruzo.
+      // EMBEBIDA NO HAY ATRAS, porque no hay nada detras. La escarapela es la
+      // primera pantalla dentro del modal (ver `screen` en state.js), asi que
+      // este boton llevaba al splash —"Encuentra tu proximo hogar"—, una
+      // pantalla de bienvenida que dentro de un modal sobra: quien pulso
+      // "¡Empezar mi match!" ya dijo que queria empezar. Se colaba solo por
+      // aqui, y quien lo pulsaba se quedaba en una puerta anterior a la que
+      // ya habia cruzado.
+      (window.GDF_EMBED
+        ? ''
+        : '<button class="gdf-back-btn" data-action="goSplash">' + ic('flecha-izquierda') + ' Atrás</button>') +
       '<div class="kicker"><div class="eyebrow">TU CARNÉ DE CONSTRUCTOR</div><h2>Primero, preséntate</h2></div>' +
       '<div class="gdf-carnet">' +
       '<div class="clip"></div>' +
@@ -254,7 +377,7 @@
         : '') +
       '<span>CARNÉ DE CONSTRUCTOR</span></div>' +
       '<div class="body">' +
-      '<div class="avatar" id="carnetAvatar">' + genderObj.emoji + '</div>' +
+      '<div class="avatar" id="carnetAvatar">' + ic('usuario') + '</div>' +
       '<div class="name" id="carnetName">' + (esc(fullName) || 'Tu nombre') + '</div>' +
       '<div class="phone" id="carnetPhone">' + (esc(state.telefono.trim()) || 'Tu teléfono') + '</div>' +
       '<div class="badge-wrap" id="carnetBadgeWrap">' + affiliateBadge + '</div>' +
@@ -268,23 +391,13 @@
       '<input class="gdf-input" id="correoInput" type="email" placeholder="Ej: ana.ruiz@correo.com" value="' + esc(state.correo) + '" />' +
       '<label class="gdf-field-label">Teléfono (WhatsApp)</label>' +
       '<input class="gdf-input" id="telefonoInput" inputmode="tel" placeholder="Ej: 300 123 4567" value="' + esc(state.telefono) + '" />' +
-      // La cedula va DESPUES del telefono porque los dos juntos son lo que
-      // reconoce a quien vuelve (ver js/datos.js): pedirlos seguidos deja claro
-      // que son una pareja, y la ayuda de abajo explica para que sirven.
-      '<label class="gdf-field-label">Cédula</label>' +
-      '<input class="gdf-input" id="cedulaInput" inputmode="numeric" placeholder="Ej: 1020304050" value="' + esc(state.cedula) + '" />' +
-      '<p class="gdf-field-hint">Si ya llenaste el formulario antes, con tu cédula y tu teléfono te devolvemos tus resultados sin repetir las preguntas.</p>' +
       afiliacionCampo +
       '<label class="gdf-consent" data-action="toggleConsent">' +
-      '<span class="box' + (state.consent ? ' checked' : '') + '">' + (state.consent ? '✓' : '') + '</span>' +
-      '<span class="text">' +
-      txt(
-        'habeasData',
-        'Autorizo el tratamiento de mis datos personales para recibir información de vivienda de Colsubsidio (Habeas Data).'
-      ) +
-      '</span>' +
+      '<span class="box' + (state.consent ? ' checked' : '') + '">' + (state.consent ? ic('check') : '') + '</span>' +
+      // El texto legal sale de js/consentimiento.js (versionado), no del copy de la marca.
+      '<span class="text">' + window.GDF.consentimiento.registro().html + '</span>' +
       '</label>' +
-      '<button class="gdf-btn-primary' + (canStart ? ' enabled' : '') + '" data-action="startQuiz">Empezar a construir →</button>' +
+      '<button class="gdf-btn-primary' + (canStart ? ' enabled' : '') + '" data-action="startQuiz">Empezar a construir ' + ic('flecha-derecha') + '</button>' +
       '<p class="gdf-hint">Completa nombres, apellidos, correo, teléfono y consentimiento para continuar.</p>' +
       '</div>'
     );
@@ -372,11 +485,16 @@
   function sceneBlock(state, derived, animarTodo) {
     var planta = derived.planta;
     var answers = state.answers || {};
+    // 'operacion' (Comprar/Arrendar, ver data.js): lienzo en blanco, ni
+    // lote ni losa -- `state.planta` ya existe desde 'startQuiz', así que
+    // sin este corte se alcanzaría a ver el contorno vacío de la casa
+    // antes de elegir siquiera qué se está buscando.
+    var vacio = derived.q && derived.q.escena === 'vacio';
 
-    var loteHtml = derived.showLote ? '<div class="gdf-lote"><span>Tu lote</span></div>' : '';
+    var loteHtml = (derived.showLote && !vacio) ? '<div class="gdf-lote"><span>Tu lote</span></div>' : '';
 
     var roomsHtml = '';
-    if (derived.losaRevealed) {
+    if (derived.losaRevealed && !vacio) {
       var roomsInner = derived.rooms
         .map(function (room) {
           return cuartoHtml(room, !!animarTodo);
@@ -421,7 +539,7 @@
     // apartamento (a qué altura está) y la sombra que proyecta. Es data-* para
     // que main.js lo actualice sin tocar el resto de la escena.
     var piso = answers.piso_preferido ? ' data-piso="' + esc(answers.piso_preferido) + '"' : '';
-    var haloHtml = answers.entorno_deseado ? haloAmenidadesHtml(planta, answers) : '';
+    var haloHtml = (answers.entorno_deseado && !vacio) ? haloAmenidadesHtml(planta, answers) : '';
 
     // EL MAPA TAPA LA ESCENA, NO LA SUSTITUYE. En la pregunta de ubicación el
     // lienzo lo ocupa el mapa de Bogotá, pero `.gdf-scene` se sigue pintando
@@ -446,8 +564,12 @@
     // la recomendación. La recomendación sale al final, calculada con las
     // respuestas. Además el nombre de la localidad chocaba con la que el
     // usuario acababa de elegir.
+    // `gdf-scene--vacio` es lo que lee el CSS (y updateEscenaVacioDOM en
+    // main.js, en preguntas siguientes) para pasar el panel a pantalla
+    // completa en vez de dejar esta mitad en blanco -- ver el media query de
+    // 900px en styles.css.
     return (
-      '<div class="gdf-scene"' + piso + '>' +
+      '<div class="gdf-scene' + (vacio ? ' gdf-scene--vacio' : '') + '"' + piso + '>' +
       loteHtml + roomsHtml + haloHtml + mapaHtml +
       '</div>'
     );
@@ -517,18 +639,16 @@
   // entre mapa y buscador, ni forma de corregirse. La elección en curso vive
   // fuera de `state` (ver `zonaSeleccion` en main.js) y se compromete al
   // pulsar Continuar, exactamente como 'entorno_deseado'.
-  // UN SOLO BUSCADOR PARA LOS DOS CAMINOS. Hubo un momento de dos pestañas
-  // —"conozco el barrio" y "sé un lugar cerca"—, y esa pregunta previa sobraba:
-  // obligaba a declarar QUIÉN es uno antes de poder escribir, y quien no sabía
-  // en qué pestaña estaba lo escrito se encontraba un campo que no encontraba
-  // nada. Ahora se escribe y ya: "Cedritos" trae el barrio, "Unicentro" trae el
-  // centro comercial, y las dos clases de resultado bajan en la MISMA lista,
-  // cada una bajo su encabezado. Los dos terminan en el mismo
-  // `{localidad, barrio, bi}` y se pueden mezclar en la misma respuesta.
+  // UN SOLO BUSCADOR PARA LOS DOS CAMINOS. Quien conoce los barrios de Bogotá
+  // escribe el suyo; quien no, el centro comercial o el parque de al lado. Ya
+  // no se le pregunta antes cuál de los dos es: eran dos pestañas, y la
+  // persona tenía que decidir de qué tipo era lo que iba a escribir antes de
+  // escribirlo. Ahora el desplegable trae las dos cosas juntas —barrios
+  // arriba, lugares debajo (ver renderZonaSugerencias en main.js)— y las dos
+  // terminan en el mismo `{localidad, barrio, bi}`.
   //
-  // LOS CHIPS VAN ARRIBA, fuera del buscador. Antes vivían dentro del propio
-  // campo (fundidos en su caja, como el "para:" de un correo); en una fila
-  // propia dicen mejor lo que son: la respuesta completa, venga de donde venga.
+  // Los chips van arriba del buscador, en su propia fila: son la respuesta
+  // completa, venga del barrio, del lugar o del mapa.
   function zonaPanel(q, state) {
     // Habilitado si ya había zonas elegidas —se vuelve aquí con "Atrás"—; con
     // la lista vacía, el botón lo enciende sincronizarZona() al primer clic.
@@ -537,22 +657,17 @@
       '<div class="gdf-quiz-freeform gdf-zona">' +
       '<div class="gdf-entorno-chips gdf-zona-chips" id="zonaChips"></div>' +
 
-      '<div class="gdf-entorno-combo gdf-zona-combo">' +
+      '<div class="gdf-entorno-combo">' +
       '<div class="gdf-zona-input-wrap" id="zonaInputWrap">' +
       '<input class="gdf-input gdf-zona-input" id="zonaSearch" type="text" autocomplete="off" ' +
-      'placeholder="' + (elegida ? 'Agregar otra zona…' : 'Tu barrio, o un lugar que reconozcas…') + '" />' +
+      'placeholder="' + (elegida ? 'Agregar otra zona…' : 'Tu barrio o un lugar cerca (Cedritos, Unicentro…)') + '" />' +
       '</div>' +
       '<div class="gdf-multi-opt-list" id="zonaOpciones"></div>' +
       '</div>' +
-      // NO HAY UNA LINEA QUE EXPLIQUE EL BUSCADOR, y es a proposito. La tuvo
-      // mientras fue la pestana de lugares ("Ubicamos el barrio al que
-      // pertenece el lugar que elijas"), donde era la unica pista de que ese
-      // modo hacia algo distinto. Con un solo campo ya lo dicen el enunciado
-      // de la pregunta (data.js) y el placeholder, y una tercera linea entre
-      // el campo y el eco solo repetia lo mismo tres veces seguidas.
+
       '<p class="gdf-zona-eco" id="zonaEco">' + zonaEco(state.zonaSectores) + '</p>' +
       '<button class="gdf-btn-primary' + (elegida ? ' enabled' : '') + '" ' +
-      'data-action="answerQuizZona" data-qid="' + q.id + '">Continuar →</button>' +
+      'data-action="answerQuizZona" data-qid="' + q.id + '">Continuar ' + ic('flecha-derecha') + '</button>' +
       '</div>'
     );
   }
@@ -568,23 +683,17 @@
         (q.min != null ? ' min="' + q.min + '"' : '') +
         (q.max != null ? ' max="' + q.max + '"' : '') +
         ' placeholder="' + esc(q.placeholder || '') + '" />' +
-        '<button class="gdf-btn-primary" data-action="answerQuizNumber" data-qid="' + q.id + '">Continuar →</button>' +
+        '<button class="gdf-btn-primary" data-action="answerQuizNumber" data-qid="' + q.id + '">Continuar ' + ic('flecha-derecha') + '</button>' +
         '</div>';
     } else if (q && q.type === 'text') {
       answerAreaHtml =
         '<div class="gdf-quiz-freeform">' +
         '<input class="gdf-input" id="quizTextInput" type="text" placeholder="' + esc(q.placeholder || '') + '" />' +
-        '<button class="gdf-btn-primary enabled" data-action="answerQuizText" data-qid="' + q.id + '">Continuar →</button>' +
+        '<button class="gdf-btn-primary enabled" data-action="answerQuizText" data-qid="' + q.id + '">Continuar ' + ic('flecha-derecha') + '</button>' +
         '</div>';
     } else if (q && q.type === 'zona') {
       answerAreaHtml = zonaPanel(q, state);
     } else if (q && q.type === 'multiselect') {
-      // Buscador con "explorar todo": al enfocar aparece el listado completo
-      // (25 zonas, precargadas de una — ver main.js) y escribir lo filtra.
-      // Flota pegado al buscador (position:absolute sobre '.gdf-entorno-combo',
-      // ver CSS), por eso no es un <details> nativo: ahí no hay forma de
-      // decidir por JS cuándo mostrarlo. Debajo, en su propio lugar: chips de
-      // lo elegido y Continuar al final.
       var multiOpts = q.options
         .map(function (o) {
           return (
@@ -594,79 +703,631 @@
           );
         })
         .join('');
+      // Con `min` declarado (estilo de vida de Arriendo, data.js): las 11
+      // opciones A LA VISTA como chips con icono y un contador "Elegiste N de
+      // 3" (T8, variante A aprobada por Diego el 2026-10-06; mockup en
+      // design/formulario-rediseno/mockups-arriendo). Antes iban en un
+      // desplegable que en el celular escondía la mayoría. La lógica no
+      // cambia: cada chip es un 'toggleEntorno' y #entornoOpciones es el
+      // contenedor que leen toggleEntornoValor()/renderEntornoChips() en
+      // main.js, que también habilitan Continuar al llegar a `min`.
+      if (q.min) {
+        var puntos = '';
+        for (var pi = 0; pi < q.min; pi++) puntos += '<i></i>';
+        var chipsEstilo = q.options
+          .map(function (o) {
+            return (
+              '<button type="button" class="gdf-estilo-chip" data-action="toggleEntorno" data-value="' + esc(o.v) + '"' +
+              ' aria-pressed="false">' + iconoEstilo(o.v) + '<span>' + esc(o.label) + '</span></button>'
+            );
+          })
+          .join('');
+        answerAreaHtml =
+          '<div class="gdf-quiz-freeform">' +
+          '<div class="gdf-estilo-cuenta" data-min="' + q.min + '">' +
+          '<span aria-live="polite">Elegiste <b class="n">0</b> de ' + q.min + ' como mínimo</span>' +
+          '<span class="puntos" aria-hidden="true">' + puntos + '</span>' +
+          '</div>' +
+          '<div class="gdf-estilo-chips" id="entornoOpciones">' + chipsEstilo + '</div>' +
+          '<button class="gdf-btn-primary" data-action="answerQuizMultiselect" data-qid="' + q.id + '">Continuar ' + ic('flecha-derecha') + '</button>' +
+          '</div>';
+      } else {
+        // Buscador con "explorar todo": al enfocar aparece el listado
+        // completo (25 zonas, precargadas de una — ver main.js) y escribir
+        // lo filtra. Flota pegado al buscador (position:absolute sobre
+        // '.gdf-entorno-combo', ver CSS), por eso no es un <details>
+        // nativo: ahí no hay forma de decidir por JS cuándo mostrarlo.
+        // Debajo, en su propio lugar: chips de lo elegido y Continuar.
+        answerAreaHtml =
+          '<div class="gdf-quiz-freeform">' +
+          '<div class="gdf-entorno-combo">' +
+          '<input class="gdf-input" id="entornoSearch" type="text" placeholder="Busca (ej. piscina, bbq)…" autocomplete="off" />' +
+          '<div class="gdf-multi-opt-list" id="entornoOpciones">' + multiOpts + '</div>' +
+          '</div>' +
+          '<div class="gdf-entorno-chips" id="entornoChips"></div>' +
+          '<button class="gdf-btn-primary enabled" data-action="answerQuizMultiselect" data-qid="' + q.id + '">Continuar ' + ic('flecha-derecha') + '</button>' +
+          '</div>';
+      }
+    } else if (q && q.type === 'contador') {
+      // Arriendo: 4 contadores en una sola pantalla (ver data.js, id
+      // 'habitaciones'). Estilos en `.gdf-contador*` de styles.css (antes
+      // iban en línea). Valor no controlado (igual que
+      // zonaSeleccion/entornoSeleccion): +/- patchea el número en el DOM sin
+      // re-render, ver ajustarContador() en main.js.
+      // T8, variante A "filas con botones grandes" (aprobada por Diego el
+      // 2026-10-06): icono por fila, una pista corta sacada de min/max y
+      // botones de 44 px. El − y el + se apagan en los extremos (los pinta
+      // pintarContador() en main.js al entrar y en cada toque).
+      var filasContador = q.campos
+        .map(function (c) {
+          var pista = c.min === 0 ? 'Puede ser 0'
+            : c.id === 'estrato' ? 'Del ' + c.min + ' al ' + c.max
+            : 'Mínimo ' + c.min;
+          return (
+            '<div class="gdf-contador">' +
+            '<span class="gdf-contador-icono">' + ic(ICONO_CONTADOR[c.id] || 'casa') + '</span>' +
+            '<span class="gdf-contador-nombre"><b id="contadorNombre-' + c.id + '">' + esc(c.label) + '</b><span>' + pista + '</span></span>' +
+            '<div class="gdf-contador-control" role="group" aria-labelledby="contadorNombre-' + c.id + '">' +
+            '<button type="button" class="gdf-contador-btn" data-action="ajustarContador" data-campo="' + c.id + '" data-delta="-1" aria-label="Menos ' + esc(c.label) + '">' + ic('menos') + '</button>' +
+            '<span class="gdf-contador-valor" id="contadorValor-' + c.id + '" aria-live="polite">' + c.inicial + '</span>' +
+            '<button type="button" class="gdf-contador-btn" data-action="ajustarContador" data-campo="' + c.id + '" data-delta="1" aria-label="Más ' + esc(c.label) + '">' + ic('mas') + '</button>' +
+            '</div>' +
+            '</div>'
+          );
+        })
+        .join('');
       answerAreaHtml =
         '<div class="gdf-quiz-freeform">' +
-        '<div class="gdf-entorno-combo">' +
-        '<input class="gdf-input" id="entornoSearch" type="text" placeholder="Busca (ej. piscina, bbq)…" autocomplete="off" />' +
-        '<div class="gdf-multi-opt-list" id="entornoOpciones">' + multiOpts + '</div>' +
-        '</div>' +
-        '<div class="gdf-entorno-chips" id="entornoChips"></div>' +
-        '<button class="gdf-btn-primary enabled" data-action="answerQuizMultiselect" data-qid="' + q.id + '">Continuar →</button>' +
+        filasContador +
+        '<button class="gdf-btn-primary enabled" data-action="answerPreferencias" data-qid="' + q.id + '">Continuar ' + ic('flecha-derecha') + '</button>' +
         '</div>';
     } else if (q) {
       var cols = q.cols || 1;
+      // DOS FORMAS DE OPCION (variante B "lista sobria", aprobada por Diego
+      // el 2026-10-03; mockup en design/formulario-rediseno):
+      //   - FILA: ancho completo, con el indicador de selección a la derecha
+      //     (o, si la opción tiene icono, el icono a la izquierda y una
+      //     flecha a la derecha). Es la de casi todas las preguntas.
+      //   - CASILLA: las numéricas cortas (personas, habitaciones), que en
+      //     filas serían cinco renglones para "0, 1, 2, 3, 4+". Siguen en
+      //     cuadrícula, con la misma forma y los mismos estados.
+      var iconos = ICONOS_OPCION[q.id] || null;
+      var enFilas = !!iconos || cols <= 2 || q.options.some(function (o) { return !!o.hint; });
+      // La elegida: la respuesta vigente o, al volver con "Atrás" (que la
+      // deshace), la que había — ver `respuestaPrevia` en state.js.
+      var previa = state.respuestaPrevia;
+      var elegida = state.answers && state.answers[q.id] != null
+        ? state.answers[q.id]
+        : previa && previa.qid === q.id ? previa.v : null;
       var options = q.options
         .map(function (o) {
           var hasHint = !!o.hint;
+          var icono = iconos && iconos[o.v];
+          var sel = elegida != null && String(elegida) === String(o.v);
+          var indicador = '';
+          if (enFilas) {
+            indicador = icono
+              ? '<span class="gdf-opt-flecha">' + ic('flecha-derecha') + '</span>'
+              : '<span class="gdf-opt-radio">' + (sel ? ic('check') : '') + '</span>';
+          }
           return (
-            '<button class="gdf-opt-btn' + (hasHint ? ' has-hint' : '') + '" data-action="selectOption" data-qid="' + q.id + '" data-value="' + esc(o.v) + '">' +
-            '<span class="label">' + esc(o.label) + '</span>' +
-            (hasHint ? '<span class="hint">' + esc(o.hint) + '</span>' : '') +
+            '<button class="gdf-opt-btn' + (hasHint ? ' has-hint' : '') + (sel ? ' selected' : '') +
+            '" data-action="selectOption" data-qid="' + q.id + '" data-value="' + esc(o.v) + '"' +
+            (sel ? ' aria-pressed="true"' : '') + '>' +
+            (icono ? '<span class="gdf-opt-icono">' + ic(icono) + '</span>' : '') +
+            '<span class="gdf-opt-texto"><span class="label">' + esc(o.label) + '</span>' +
+            (hasHint ? '<span class="hint">' + esc(o.hint) + '</span>' : '') + '</span>' +
+            indicador +
             '</button>'
           );
         })
         .join('');
-      answerAreaHtml = '<div class="gdf-options cols-' + cols + '">' + options + '</div>';
+      answerAreaHtml = enFilas
+        ? '<div class="gdf-options gdf-options--filas">' + options + '</div>'
+        : '<div class="gdf-options gdf-options--casillas cols-' + cols + '">' + options + '</div>';
     }
 
     // Siempre visible: en la primera pregunta (qi===0) goBack regresa a
     // escarapela en vez de no hacer nada (ver applyAction en state.js).
-    var backBtn = '<button class="gdf-back-btn" data-action="goBack">← Atrás</button>';
+    // Va DEBAJO DE LAS RESPUESTAS, alineado con ellas (variante B): antes
+    // quedaba suelto al fondo del panel, lejos de lo que se estaba mirando.
+    var backBtn = '<button class="gdf-back-btn" data-action="goBack">' + ic('flecha-izquierda') + ' Atrás</button>';
+
+    // EL PROGRESO ES EL DE LAS PREGUNTAS: un segmento por pregunta, rellenos
+    // los contestados y el actual. Antes la única barra era la de afinidad,
+    // que no aparece en la primera respuesta ni en Arriendo, así que el
+    // formulario no tenía un progreso constante.
+    var paso = Math.min(derived.answered + 1, derived.stepTotal);
+    var segmentos = '';
+    for (var s = 1; s <= derived.stepTotal; s++) {
+      segmentos += '<i class="' + (s < paso ? 'hecho' : s === paso ? 'actual' : '') + '"></i>';
+    }
+
+    // LA AFINIDAD queda como dato secundario, junto al paso.
+    //
+    // El número es REAL: sale de matching.js con lo contestado hasta ahora
+    // (ver compatDe), y puede BAJAR si una respuesta aleja a la persona del
+    // catálogo. Es una estimación del motor local; el "% match" de los
+    // resultados viene del modelo y puede no coincidir (diagnóstico A5).
+    //
+    // NO SE MUESTRA HASTA LA SEGUNDA RESPUESTA. Con una sola contestada el
+    // número lo decide un único factor, y desde que `zona` va primera ese
+    // factor es el más brusco de la fórmula: +29 si el proyecto está en la
+    // localidad pedida, −16 si no (ver matching.js). Quien elija una de las
+    // seis localidades sin oferta lo veía caer a su suelo del 40 % en la
+    // primera pantalla, que se lee como "no hay nada para ti".
+    // Arriendo nunca la muestra: matching.js es 100 % de compra (VIS,
+    // crédito) y no significa nada para un canon de arriendo.
+    var afinidad = derived.answered >= 2 && state.answers.operacion !== 'arriendo'
+      ? '<span class="gdf-afinidad">Afinidad con el catálogo <b>' + derived.compat + '%</b></span>'
+      : '';
 
     return (
       '<div class="gdf-screen gdf-quiz">' +
-      // El número es REAL: sale de matching.js con lo contestado hasta ahora
-      // (ver compatDe). Por eso el rótulo dice "ahora mismo" — a diferencia de
-      // la barra falsa que había antes, esta puede BAJAR si una respuesta
-      // aleja a la persona del catálogo, y prometerle "compatibilidad" a secas
-      // haría que bajar se leyera como un error de la app.
-      //
-      // NO SE MUESTRA HASTA LA SEGUNDA RESPUESTA. Con una sola contestada el
-      // número lo decide un único factor, y desde que `zona` va primera ese
-      // factor es el más brusco de la fórmula: +29 si el proyecto está en la
-      // localidad pedida, −16 si no (ver matching.js). Quien elija una de las
-      // seis localidades sin oferta veía la barra caer a su suelo del 40 % en
-      // la primera pantalla del quiz, que se lee como "no hay nada para ti"
-      // cuando en realidad el modelo va a expandir a las vecinas y sí le va a
-      // responder. A partir de dos respuestas el número ya promedia varios
-      // factores y vuelve a significar algo.
-      (derived.answered >= 2
-        ? '<div class="gdf-compat">' +
-          '<div class="gdf-compat-row"><span>Encaje con el catálogo ahora mismo</span><span>' + derived.compat + '%</span></div>' +
-          '<div class="gdf-progress-track"><div class="gdf-progress-fill" style="width:' + derived.compat + '%"></div></div>' +
-          '</div>'
-        : '<div class="gdf-compat gdf-compat-vacia"></div>') +
-      // LAS TRES ZONAS. La barra de arriba y el "Atrás" de abajo son los dos
-      // puntos fijos del panel: entre pregunta y pregunta no se mueven ni un
-      // píxel. Todo lo que cambia vive en `.gdf-quiz-cuerpo`, que es lo único
-      // que respira — se centra cuando sobra sitio (la pregunta de
-      // habitaciones son tres botones en una fila) y scrollea cuando falta
-      // (el buscador de barrios de `zona`, o las 25 amenidades).
-      //
-      // El envoltorio hace falta AUNQUE en móvil no se use la maqueta de tres
-      // zonas: es también lo que agrupa a los hijos que entran escalonados, y
-      // tenerlo siempre evita un segundo camino en templates.
+      // LAS TRES ZONAS. El progreso de arriba es el punto fijo del panel:
+      // entre pregunta y pregunta no se mueve ni un píxel. Todo lo que cambia
+      // vive en `.gdf-quiz-cuerpo`, que es lo único que respira — se centra
+      // cuando sobra sitio y scrollea cuando falta (el buscador de barrios de
+      // `zona`, o las 25 amenidades).
+      '<div class="gdf-quiz-progreso">' +
+      '<div class="gdf-pasos" aria-hidden="true">' + segmentos + '</div>' +
+      '<div class="gdf-quiz-meta"><span class="gdf-step-count">Pregunta ' + paso + ' de ' + derived.stepTotal + '</span>' +
+      afinidad + '</div>' +
+      '</div>' +
       '<div class="gdf-quiz-cuerpo">' +
-      '<div class="gdf-step-count">Pregunta ' + Math.min(derived.answered + 1, derived.stepTotal) + ' de ' + derived.stepTotal + '</div>' +
       '<div class="gdf-question"><h2>' + (q ? esc(q.title) : '') + '</h2><p>' + (q ? esc(q.sub) : '') + '</p></div>' +
       answerAreaHtml +
-      '</div>' +
       backBtn +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  // Iconos de las opciones que tienen uno (variante B): las dos preguntas de
+  // entrada, donde la persona elige QUÉ busca. Por `v`, que es lo que no
+  // cambia; los textos visibles sí pueden cambiar.
+  // T8: el icono de cada contador de Arriendo (iconos-ui.js).
+  var ICONO_CONTADOR = { habitaciones: 'cama', banos: 'ducha', parqueaderos: 'carro', estrato: 'estrato' };
+
+  // T8: el icono de cada opción de estilo de vida. Los que existen en el
+  // vocabulario de amenidades (js/iconos.js) se toman de ahí; el resto, de
+  // iconos-ui.js. Sin icono, el chip va solo con el texto.
+  var ICONO_ESTILO = {
+    vivo_solo: ['ui', 'usuario'],
+    vivo_ninos: ['amenidad', 'Zona kids'],
+    vivo_mascotas: ['amenidad', 'Zona pet'],
+    discapacidad: ['ui', 'discapacidad'],
+    biciusuario: ['amenidad', 'Taller de bicicletas'],
+    gimnasio_personal: ['amenidad', 'Gimnasio'],
+    aire_libre: ['amenidad', 'Parque'],
+    balcon_terraza: ['amenidad', 'Balcón'],
+    zona_ropas: ['amenidad', 'Zona de lavandería'],
+    deposito: ['amenidad', 'Depósito'],
+    areas_sociales: ['amenidad', 'Salón social'],
+  };
+  function iconoEstilo(valor) {
+    var d = ICONO_ESTILO[valor];
+    if (!d) return '';
+    if (d[0] === 'ui') return ic(d[1]);
+    return (window.GDF.iconos && window.GDF.iconos.icono(d[1])) || '';
+  }
+
+  var ICONOS_OPCION = {
+    operacion: { compra: 'llave', arriendo: 'contrato' },
+    tipo_propiedad: { Vivienda: 'casa', Oficinas: 'edificio', Bodegas: 'bodega' },
+  };
+
+  // Arriendo: no hay modelo ni catálogo real detrás (ver el plan de esta
+  // entrega) -- se agradece, se resume lo contestado (mismos chips que
+  // Compra) y se explica que el matching automático está en desarrollo.
+  // Nunca llega a `state.lead`/`state.reco`: bifurca ANTES de que result()
+  // los toque.
+  // Los tres estados de GET /api/arriendo (ver js/arriendo.js). Mismo
+  // criterio que recoCargando/recoVacio/recoError para Compra -- y, desde
+  // esta entrega, la misma tarjeta (`projectCardArriendo`, calcada de
+  // `projectCard` de Compra): el pedido fue justamente que Arriendo se vea
+  // igual, con foto y todo. Sin mapa: Compra tampoco lo tiene en resultados.
+  // Los tres usan el mismo marcado que Compra (esqueleto y `.gdf-reco-aviso`)
+  // para que Arriendo herede su diseño sin CSS propio.
+  function arriendoCargando() {
+    return recoCargando().replace('Buscando proyectos para ti…', 'Buscando inmuebles en arriendo…');
+  }
+
+  function arriendoError(arriendo) {
+    return (
+      '<div class="gdf-reco-aviso error">' +
+      '<div class="icono">' + ic('alerta') + '</div>' +
+      '<h3>No pudimos cargar los inmuebles en arriendo</h3>' +
+      '<p>' + esc(arriendo.error || 'Hubo un problema de conexión.') + '</p>' +
+      '<div class="acciones">' +
+      '<button class="gdf-btn-primary enabled" data-action="reintentarArriendo">Reintentar</button>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  function arriendoVacio() {
+    return (
+      '<div class="gdf-reco-aviso vacio">' +
+      '<div class="icono">' + ic('buscar') + '</div>' +
+      '<h3>Todavía no tenemos inmuebles de este tipo</h3>' +
+      '<p>Prueba con otra zona o vuelve a intentarlo más adelante.</p>' +
+      '<div class="acciones">' +
+      '<button class="gdf-btn-primary enabled" data-action="goBack">' + ic('flecha-izquierda') + ' Cambiar mis respuestas</button>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  // Tarjeta de un inmueble de Arriendo. Mismo esqueleto visual que
+  // `projectCard()` (Compra) -- mismas clases CSS, cero CSS nuevo -- pero
+  // con los campos que Arriendo sí tiene: canon mensual en vez de "Desde",
+  // tipo de inmueble en vez de VIS/subsidio, un solo botón "Ver ficha" en
+  // vez de Llamar/WhatsApp (Arriendo no dispara la llamada de Manuela, eso
+  // no cambió en esta entrega).
+  // El pliego de fotos. Cada ficha de Fincaraíz publica 18 en promedio (hasta
+  // 60) y la portada sola desaprovecha el resto, que es justo lo que deja ver
+  // si una bodega sirve o no. Se corta en `MAX_FOTOS_ARRIENDO` porque son
+  // imágenes remotas del CDN de Fincaraíz: 60 por tarjeta x 6 tarjetas serían
+  // 360 descargas por página.
+  //
+  // Reusa `.gdf-project-detalle` de Compra tal cual, y con ello el acordeón y
+  // la persistencia al repintar: el listener de 'toggle' en main.js engancha
+  // por esa clase y guarda el estado en `state.detalleAbierto[data-proyecto]`.
+  var MAX_FOTOS_ARRIENDO = 12;
+
+  // "Detalles de la Propiedad" tal como los publica la ficha de Fincaraíz: el
+  // scraper copia su tabla (`technicalSheet`) con sus propias etiquetas, así
+  // que aquí no se traduce ni se reordena nada. Ver `_ficha` en
+  // scraping/scraper_arriendo.py.
+  function fichaArriendo(item) {
+    var filas = (item.ficha || [])
+      .map(function (f) {
+        return (
+          '<div class="gdf-ficha-fila">' +
+          '<span class="gdf-ficha-etiqueta">' + esc(f.etiqueta) + '</span>' +
+          '<span class="gdf-ficha-valor">' + esc(f.valor) + '</span>' +
+          '</div>'
+        );
+      })
+      .join('');
+    if (!filas) return '';
+    return (
+      '<div class="gdf-detalle-titulo-bloque">Detalles de la propiedad</div>' +
+      '<div class="gdf-ficha">' + filas + '</div>'
+    );
+  }
+
+  // "Comodidades de la propiedad", agrupadas como vienen en la ficha
+  // (Interior, Exterior, Sector...). Sin agrupar, 30 etiquetas sueltas se
+  // leen como una bolsa: el grupo es lo que deja ver de un vistazo si lo que
+  // tiene es del inmueble o del barrio.
+  function comodidadesArriendo(item) {
+    var comodidades = item.comodidades || [];
+    if (!comodidades.length) return '';
+    var grupos = [];
+    var porGrupo = {};
+    comodidades.forEach(function (c) {
+      var grupo = c.grupo || 'Otras';
+      if (!porGrupo[grupo]) {
+        porGrupo[grupo] = [];
+        grupos.push(grupo);
+      }
+      porGrupo[grupo].push(c.nombre);
+    });
+    var html = grupos
+      .map(function (grupo) {
+        return (
+          '<div class="gdf-comodidad-grupo">' +
+          '<span class="gdf-comodidad-grupo-nombre">' + esc(grupo) + '</span>' +
+          porGrupo[grupo]
+            .map(function (n) { return '<span class="gdf-comodidad">' + esc(n) + '</span>'; })
+            .join('') +
+          '</div>'
+        );
+      })
+      .join('');
+    return (
+      '<div class="gdf-detalle-titulo-bloque">Comodidades (' + comodidades.length + ')</div>' +
+      '<div class="gdf-comodidades">' + html + '</div>'
+    );
+  }
+
+  function galeriaArriendo(item, state) {
+    var fotos = (item.imagenes || []).slice(0, MAX_FOTOS_ARRIENDO);
+    var extras = fichaArriendo(item) + comodidadesArriendo(item);
+    if (fotos.length < 2 && !extras) return '';
+    var id = String(item.id_inmueble);
+    var abierto = !!state.detalleAbierto[id];
+    var total = (item.imagenes || []).length;
+
+    // `loading="lazy"`: el pliego nace cerrado y sin esto el navegador se baja
+    // las 12 fotos de las 6 tarjetas igual, para no mostrarlas.
+    //
+    // La miniatura abre el VISOR (ver `visorFotos`) en vez de la foto en una
+    // pestaña nueva: ahí se ven en grande y se pueden pasar sin salirse de la
+    // experiencia, que es lo que se pidió.
+    var miniaturas = fotos
+      .map(function (url, idx) {
+        return (
+          '<button class="gdf-arriendo-foto" data-action="abrirVisor" data-inmueble="' + esc(id) +
+          '" data-idx="' + idx + '" aria-label="Ver la foto ' + (idx + 1) + ' en grande">' +
+          '<img src="' + esc(url) + '" alt="Foto ' + (idx + 1) + ' de ' + esc(item.nombre || 'el inmueble') +
+          '" loading="lazy">' +
+          '</button>'
+        );
+      })
+      .join('');
+
+    return (
+      '<details class="gdf-project-detalle"' + (abierto ? ' open' : '') +
+      ' data-action="noop" data-proyecto="' + esc(id) + '">' +
+      '<summary><span class="gdf-detalle-titulo">' +
+      (total > 1 ? 'Ver las ' + total + ' fotos y los detalles' : 'Ver los detalles') +
+      '</span><span class="gdf-detalle-chevron">' + ic('chevron-abajo') + '</span></summary>' +
+      '<div class="gdf-detalle-body">' +
+      (miniaturas ? '<div class="gdf-arriendo-galeria">' + miniaturas + '</div>' : '') +
+      (total > fotos.length
+        ? '<p class="gdf-detalle-vacio">Las otras ' + (total - fotos.length) +
+          ' están en la ficha de Fincaraíz.</p>'
+        : '') +
+      extras +
+      '</div>' +
+      '</details>'
+    );
+  }
+
+  // Las comodidades de Fincaraíz traducidas al vocabulario de iconos
+  // (js/iconos.js), que está escrito con los nombres del catálogo de Compra.
+  // Se compara por substring normalizado: la fuente dice "Zonas Verdes",
+  // "Ascensor(es) inteligente(s)" o "Sauna / Turco / Jacuzzi" para lo que el
+  // vocabulario llama "Zona verde", "Ascensor" y "Sauna".
+  //
+  // EL ORDEN IMPORTA: gana la primera que coincida, así que lo específico va
+  // antes que lo genérico ("salon de juegos" antes que "salon").
+  // Se construye con new RegExp para no dejar caracteres combinantes sueltos
+  // en el archivo, que son invisibles en el editor (mismo criterio que
+  // RE_DIACRITICOS en js/recommender.js).
+  var RE_DIACRITICOS_TPL = new RegExp('[̀-ͯ]', 'g');
+
+  var ICONO_POR_COMODIDAD = [
+    ['zona infantil', 'Zona kids'],
+    ['salon de juegos', 'Sala de juegos'],
+    ['salon comunal', 'Salón social'],
+    ['parques cercanos', 'Parque'],
+    ['zonas verdes', 'Zona verde'],
+    ['jardin', 'Zona verde'],
+    ['mascota', 'Zona pet'],
+    ['gimnasio', 'Gimnasio'],
+    ['sauna', 'Sauna'],
+    ['canchas deportivas', 'Cancha múltiple'],
+    ['bici', 'Taller de bicicletas'],
+    ['lavanderia', 'Zona de lavandería'],
+    ['sala de internet', 'Coworking'],
+    ['deposito', 'Depósito'],
+    ['balcon', 'Balcón'],
+    ['terraza', 'Balcón'],
+    ['ascensor', 'Ascensor'],
+    ['colegios', 'Colegios'],
+    ['porteria', 'Portería'],
+    ['piscina', 'Piscina'],
+  ];
+
+  function claveDeIcono(nombre) {
+    var limpio = String(nombre || '')
+      .normalize('NFD')
+      .replace(RE_DIACRITICOS_TPL, '')
+      .toLowerCase();
+    for (var i = 0; i < ICONO_POR_COMODIDAD.length; i++) {
+      if (limpio.indexOf(ICONO_POR_COMODIDAD[i][0]) > -1) return ICONO_POR_COMODIDAD[i][1];
+    }
+    return '';
+  }
+
+  // "Tiene lo que buscas ✓": lo que la persona marcó en estilo de vida y este
+  // inmueble sí publica (lo cruza `_coincidencias_estilo` en Model/arriendo.py).
+  //
+  // VA SIEMPRE VISIBLE, fuera del pliego, por lo mismo que en Compra: es el
+  // "esto sí tiene lo que pediste", y metido entre las otras 20 comodidades
+  // deja de leerse como respuesta a lo que la persona pidió.
+  //
+  // Reusa el mismo marcado de Compra (`.gdf-project-entorno.destacado` +
+  // `amenidadItem`), así que hereda sus iconos, su ✓ y su entrada escalonada
+  // sin una sola regla de CSS nueva.
+  function estiloCoincideArriendo(item) {
+    var coinciden = item.estilo_coinciden || [];
+    if (!coinciden.length) return '';
+    var items = coinciden
+      .map(function (c, idx) {
+        return amenidadItem({ label: c.comodidad, icon: '', iconoClave: claveDeIcono(c.comodidad) }, true, idx);
+      })
+      .join('');
+    return (
+      '<div class="gdf-project-entorno destacado">' +
+      '<div class="gdf-entorno-titulo">Tiene lo que buscas ' + ic('check') + '</div>' +
+      '<div class="gdf-project-amenities">' + items + '</div>' +
+      '</div>'
+    );
+  }
+
+  // Calcado de `accionesContacto` de Compra, con el texto del mensaje de
+  // WhatsApp adaptado: en arriendo no se pregunta por un proyecto, se pregunta
+  // si el inmueble sigue disponible.
+  function accionesContactoArriendo(item, state) {
+    var numero = String((window.GDF_CONFIG && window.GDF_CONFIG.WHATSAPP_NUMERO) || '').replace(/\D/g, '');
+    var quien = (state.nombre || '').trim();
+    var mensaje =
+      'Hola, me interesa ' + (item.nombre || 'este inmueble') +
+      (item.localidad_nombre ? ' (' + item.localidad_nombre + ')' : '') +
+      '. ¿Sigue disponible? Vengo de Leadify' + (quien ? ', mi nombre es ' + quien : '') + '.';
+    var url = 'https://wa.me/' + numero + '?text=' + encodeURIComponent(mensaje);
+    // Mismos textos y pesos que en Compra (T9): la principal dispara la
+    // llamada de Manuela, la secundaria es un enlace.
+    return (
+      '<div class="gdf-project-acciones">' +
+      '<button class="gdf-btn-primary enabled gdf-project-llamar" data-action="llamarProyecto" data-value="' +
+      esc(item.id_inmueble) + '">' +
+      ic('telefono') + 'Hablar con un asesor</button>' +
+      '<a class="gdf-project-whatsapp" data-action="whatsapp" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.4-.5c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>' +
+      'Escribir por WhatsApp</a>' +
+      '</div>'
+    );
+  }
+
+  var ICONO_TIPO_ARRIENDO = { vivienda: 'casa', oficina: 'edificio', bodega: 'bodega' };
+
+  function projectCardArriendo(item, i, state) {
+    var foto = (item.imagenes || [])[0] || '';
+    // Mismo fondo sin foto que Compra: Leadify lo cambia por un color liso.
+    var fondo = 'var(--fondo-sin-foto, linear-gradient(135deg,var(--marca),var(--marca-medio)))';
+    var headerStyle = foto
+      ? "background:url('" + foto + "') center/cover no-repeat, " + fondo
+      : 'background:' + fondo;
+    var emojiHtml = foto ? '' : '<span class="emoji">' + ic(ICONO_TIPO_ARRIENDO[item.tipo_inmueble] || 'casa') + '</span>';
+    // El % lo calcula Model/arriendo.py (cercanía a la zona elegida, y en
+    // Vivienda también presupuesto y perfil). Sin zona no hay % que defender
+    // y llega null: ahí se muestra la posición, como Compra sin score.
+    // `.gdf-match-cifra` es la que anima el contador al entrar (ver main.js).
+    var pct = item.porcentaje_compatibilidad;
+    var badge =
+      pct != null
+        ? '<span class="gdf-project-badge"><span class="gdf-match-cifra" data-hasta="' + esc(pct) + '">' +
+          esc(pct) + '</span>% match</span>'
+        : '<span class="gdf-project-badge">#' + (i + 1) + '</span>';
+
+    var precioHtml = item.precio_canon_cop
+      ? '<div class="gdf-project-precio">Arriendo <strong>' +
+        esc('$' + Math.round(item.precio_canon_cop).toLocaleString('es-CO') + '/mes') +
+        '</strong></div>'
+      : '<div class="gdf-project-tags"><span class="gdf-project-tag no-informado">Precio no informado</span></div>';
+
+    var tipoLabel = { vivienda: 'Vivienda', oficina: 'Oficina', bodega: 'Bodega' }[item.tipo_inmueble] || '';
+    // Habitaciones/baños solo para vivienda: una bodega o una oficina no se
+    // describen por "alcobas", aunque Fincaraíz a veces publique ese campo
+    // igual (son plantillas de formulario compartidas con vivienda).
+    var esVivienda = item.tipo_inmueble === 'vivienda';
+    var tags =
+      (tipoLabel ? '<span class="gdf-project-tag">' + tipoLabel + '</span>' : '') +
+      (item.area_m2 ? '<span class="gdf-project-tag">' + esc(item.area_m2 + ' m²') + '</span>' : '') +
+      (esVivienda && item.habitaciones ? '<span class="gdf-project-tag">' + item.habitaciones + (item.habitaciones === 1 ? ' hab' : ' habs') + '</span>' : '') +
+      (esVivienda && item.banos ? '<span class="gdf-project-tag">' + item.banos + (item.banos === 1 ? ' baño' : ' baños') + '</span>' : '');
+
+    // Las mismas dos salidas que en Compra (ver `accionesContacto`): llamar
+    // dispara a Manuela y WhatsApp abre el chat con el mensaje escrito. La
+    // ficha de Fincaraíz baja a enlace: es para mirar, no para contactar.
+    var accionesHtml = accionesContactoArriendo(item, state) +
+      (item.link_origen
+        ? '<a class="gdf-project-ficha" href="' + esc(item.link_origen) +
+          '" target="_blank" rel="noopener noreferrer">Ver ficha en Fincaraíz ' + ic('enlace-externo') + '</a>'
+        : '');
+
+    // Mismo orden que la tarjeta de Compra (T9): primero se entiende el
+    // inmueble (datos, por qué quedó aquí y lo que coincide) y después se
+    // actúa. El detalle va al final porque al abrirse empujaría los botones.
+    return (
+      '<div class="gdf-project-card">' +
+      '<div class="gdf-project-header" style="' + headerStyle + '">' +
+      emojiHtml +
+      badge +
+      '</div>' +
+      '<div class="gdf-project-body">' +
+      '<div class="gdf-project-name">' + esc(item.nombre || 'Inmueble') + '</div>' +
+      precioHtml +
+      (item.localidad_nombre ? '<div class="gdf-project-loc">' + ic('ubicacion') + ' ' + esc(item.localidad_nombre) + '</div>' : '') +
+      direccionHtml(item.direccion) +
+      '<div class="gdf-project-tags">' + tags + '</div>' +
+      // Por qué quedó en esta posición, redactado por el modelo con los mismos
+      // criterios del score (mismo rol que `vm.razon` en Compra).
+      (item.razon ? '<div class="gdf-project-razon"><p class="gdf-razon-texto">' + esc(item.razon) + '</p></div>' : '') +
+      estiloCoincideArriendo(item) +
+      accionesHtml +
+      galeriaArriendo(item, state) +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  // Grilla paginada de tarjetas, igual patrón que `recoLista()` de Compra:
+  // de a 6 (`POR_PAGINA`), con los mismos `.gdf-projects`/`.gdf-paginacion`.
+  function arriendoLista(state, arriendo) {
+    var porPagina = window.GDF.recommender.POR_PAGINA || 6;
+    var totalPaginas = Math.max(1, Math.ceil(arriendo.items.length / porPagina));
+    var pagina = Math.min(Math.max(state.arriendoPagina || 0, 0), totalPaginas - 1);
+    var desde = pagina * porPagina;
+
+    var tarjetasHtml = arriendo.items
+      .slice(desde, desde + porPagina)
+      .map(function (item, i) {
+        return projectCardArriendo(item, desde + i, state);
+      })
+      .join('');
+
+    var paginacionHtml = '';
+    if (totalPaginas > 1) {
+      var puntos = '';
+      for (var n = 0; n < totalPaginas; n++) {
+        puntos +=
+          '<button class="gdf-pag-punto' + (n === pagina ? ' activo' : '') + '"' +
+          ' data-action="irAPaginaArriendo" data-pagina="' + n + '"' +
+          ' aria-label="Página ' + (n + 1) + ' de ' + totalPaginas + '"' +
+          (n === pagina ? ' aria-current="true"' : '') + '></button>';
+      }
+      paginacionHtml =
+        '<div class="gdf-paginacion">' +
+        '<button class="gdf-pag-btn" data-action="irAPaginaArriendo" data-pagina="' + (pagina - 1) + '"' +
+        (pagina === 0 ? ' disabled' : '') + '>' + ic('flecha-izquierda') + ' Anteriores</button>' +
+        '<div class="gdf-pag-puntos">' + puntos + '</div>' +
+        '<button class="gdf-pag-btn" data-action="irAPaginaArriendo" data-pagina="' + (pagina + 1) + '"' +
+        (pagina === totalPaginas - 1 ? ' disabled' : '') + '>Siguientes ' + ic('flecha-derecha') + '</button>' +
+        '</div>';
+    }
+
+    var conMatch = arriendo.items.length && arriendo.items[0].porcentaje_compatibilidad != null;
+    return (
+      '<p class="gdf-match-count"><b>' + arriendo.items.length +
+      (arriendo.items.length === 1 ? ' inmueble' : ' inmuebles') + '</b>' +
+      (conMatch ? ' ordenados por compatibilidad con la zona que elegiste.' : '.') +
+      (totalPaginas > 1
+        ? ' Mostrando del ' + (desde + 1) + ' al ' + Math.min(desde + porPagina, arriendo.items.length) + '.'
+        : '') +
+      '</p>' +
+      '<div class="gdf-projects">' + tarjetasHtml + '</div>' +
+      paginacionHtml
+    );
+  }
+
+  function resultadoArriendo(state, derived) {
+    var chipsHtml = derived.perfilChips
+      .map(function (c) {
+        return '<span class="gdf-chip' + (c.hi ? ' hi' : '') + '">' + esc(c.text) + '</span>';
+      })
+      .join('');
+    var firstNameA = state.nombre.trim().split(' ')[0];
+    var arriendo = state.arriendo;
+
+    var cuerpoHtml;
+    if (arriendo.estado === 'cargando') cuerpoHtml = arriendoCargando();
+    else if (arriendo.estado === 'error') cuerpoHtml = arriendoError(arriendo);
+    else if (!arriendo.items.length) cuerpoHtml = arriendoVacio();
+    else cuerpoHtml = arriendoLista(state, arriendo);
+
+    return (
+      '<div class="gdf-screen gdf-result">' +
+      '<div class="gdf-result-head">' +
+      '<div class="eyebrow">Arriendo</div>' +
+      '<h2>Esto es lo que encontramos para ti' + (firstNameA ? ',<br>' + esc(firstNameA) : '') + '</h2>' +
+      '</div>' +
+      '<div class="gdf-chips">' + chipsHtml + '</div>' +
+      cuerpoHtml +
+      '<button class="gdf-restart-btn" data-action="restart">' + ic('reiniciar') + ' Empezar de nuevo</button>' +
+      '<p class="gdf-disclaimer">Catálogo demo de arriendo, tomado de Fincaraíz para Bogotá D.C. — no es el catálogo completo del portal.</p>' +
       '</div>'
     );
   }
 
   function result(state, derived) {
+    if (state.answers.operacion === 'arriendo') return resultadoArriendo(state, derived);
     var lead = state.lead;
 
     var chipsHtml = derived.perfilChips
@@ -676,26 +1337,27 @@
       .join('');
 
     var notesHtml = lead.notes
+      .filter(notaVisible)
       .map(function (n) {
         return '<span class="gdf-lead-note">' + esc(n) + '</span>';
       })
       .join('');
 
-    var leadTitle = lead.status === 'ready' ? '¡Listo para hablar con un asesor!' : 'Vamos construyendo tu camino';
+    var leadTitle = lead.status === 'ready' ? 'Tu perfil está listo para un asesor' : 'Seguimos afinando tu búsqueda';
     var leadSub =
       lead.status === 'ready'
-        ? 'Tu perfil y tu financiación están listos. Un asesor te contacta muy pronto.'
-        : 'Ya tienes un plano. Sigamos afinando tu compra ideal — te acompañamos con información y seguimiento.';
+        ? 'Con lo que nos contaste, un asesor ya puede ayudarte.'
+        : 'Te acompañamos con información y seguimiento mientras defines tu compra.';
 
     var leadBadgeHtml =
       '<div class="gdf-lead-badge ' + lead.status + '">' +
-      '<span class="icon">' + lead.icon + '</span>' +
+      '<span class="icon">' + ic(lead.icon) + '</span>' +
       '<div class="title">' + leadTitle + '</div>' +
       '<div class="subcopy">' + leadSub + '</div>' +
       '<div class="gdf-lead-notes">' + notesHtml + '</div>' +
       '</div>';
 
-    var firstName = state.nombre.trim().split(' ')[0] || 'constructor';
+    var firstName = state.nombre.trim().split(' ')[0];
     var reco = state.reco;
 
     // El cuerpo cambia según en qué punto va el paso 1 del contrato. Solo el
@@ -709,12 +1371,12 @@
     return (
       '<div class="gdf-screen gdf-result">' +
       '<div class="gdf-result-head">' +
-      '<div class="eyebrow">TUS PROYECTOS RECOMENDADOS ✦</div>' +
-      '<h2>Esto es lo que encaja contigo,<br>' + esc(firstName) + '</h2>' +
+      '<div class="eyebrow">Tus proyectos recomendados</div>' +
+      '<h2>Esto es lo que encaja contigo' + (firstName ? ',<br>' + esc(firstName) : '') + '</h2>' +
       '</div>' +
       '<div class="gdf-chips">' + chipsHtml + '</div>' +
       cuerpoHtml +
-      '<button class="gdf-restart-btn" data-action="restart">↺ Empezar de nuevo</button>' +
+      '<button class="gdf-restart-btn" data-action="restart">' + ic('reiniciar') + ' Empezar de nuevo</button>' +
       '<p class="gdf-disclaimer">' +
       txt(
         'disclaimerCatalogo',
@@ -746,7 +1408,7 @@
     }
     return (
       '<p class="gdf-match-count">Buscando proyectos para ti…</p>' +
-      '<p class="gdf-reco-lento">El servidor puede tardar unos segundos en despertar la primera vez.</p>' +
+      '<p class="gdf-reco-lento">Estamos preparando tus resultados. La primera consulta puede tardar unos segundos.</p>' +
       '<div class="gdf-projects">' + tarjetas + '</div>'
     );
   }
@@ -758,12 +1420,12 @@
     var zona = state.answers.zona || 'tu localidad';
     return (
       '<div class="gdf-reco-aviso vacio">' +
-      '<div class="icono">🔍</div>' +
+      '<div class="icono">' + ic('buscar') + '</div>' +
       '<h3>Sin resultados para ' + esc(zona) + '</h3>' +
       '<p>No encontramos proyectos disponibles ahí con lo que nos contaste. ' +
       'Prueba con otra zona o ajusta el presupuesto.</p>' +
       '<div class="acciones">' +
-      '<button class="gdf-btn-primary enabled" data-action="goBack">← Cambiar mis respuestas</button>' +
+      '<button class="gdf-btn-primary enabled" data-action="goBack">' + ic('flecha-izquierda') + ' Cambiar mis respuestas</button>' +
       '<button class="gdf-btn-secundario" data-action="usarLocalAproximado">Ver proyectos parecidos</button>' +
       '</div>' +
       '</div>'
@@ -775,7 +1437,7 @@
   function recoError(reco) {
     return (
       '<div class="gdf-reco-aviso error">' +
-      '<div class="icono">⚠️</div>' +
+      '<div class="icono">' + ic('alerta') + '</div>' +
       '<h3>No pudimos traer tus recomendaciones</h3>' +
       '<p>' + esc(reco.error || 'Hubo un problema de conexión.') + '</p>' +
       '<div class="acciones">' +
@@ -823,28 +1485,28 @@
       paginacionHtml =
         '<div class="gdf-paginacion">' +
         '<button class="gdf-pag-btn" data-action="irAPagina" data-pagina="' + (pagina - 1) + '"' +
-        (pagina === 0 ? ' disabled' : '') + '>← Anteriores</button>' +
+        (pagina === 0 ? ' disabled' : '') + '>' + ic('flecha-izquierda') + ' Anteriores</button>' +
         '<div class="gdf-pag-puntos">' + puntos + '</div>' +
         '<button class="gdf-pag-btn" data-action="irAPagina" data-pagina="' + (pagina + 1) + '"' +
-        (pagina === totalPaginas - 1 ? ' disabled' : '') + '>Siguientes →</button>' +
+        (pagina === totalPaginas - 1 ? ' disabled' : '') + '>Siguientes ' + ic('flecha-derecha') + '</button>' +
         '</div>';
     }
 
     // Cuando las tarjetas salen del motor local hay que decirlo, siempre. Que
     // el backend esté caído no puede parecer un resultado del modelo.
     var avisoAprox = reco.aproximado
-      ? '<div class="gdf-reco-banner">Estos proyectos salen de nuestro catálogo local, no del modelo de recomendación. ' +
-        'Son reales, pero el orden es aproximado.</div>'
+      ? '<div class="gdf-reco-banner">' + ic('alerta') + '<span>Mostramos una selección aproximada porque el servicio de ' +
+        'recomendación no respondió. Los proyectos son reales; el orden puede variar.</span></div>'
       : '';
 
     return (
       avisoAprox +
       // Sin "Continuar" al pie ni proyecto que marcar: cada tarjeta trae sus
       // propios botones de llamar y WhatsApp (ver `accionesContacto`).
-      '<p class="gdf-match-count">Ordenados por afinidad con tu perfil. Llama o escribe desde el que más te interese.' +
+      '<p class="gdf-match-count"><b>' + reco.items.length + (reco.items.length === 1 ? ' proyecto' : ' proyectos') +
+      '</b> ordenados por afinidad con tu perfil.' +
       (totalPaginas > 1
-        ? ' <b>' + reco.items.length + ' proyectos</b>, de ' + (desde + 1) + ' a ' +
-          Math.min(desde + porPagina, reco.items.length) + '.'
+        ? ' Mostrando del ' + (desde + 1) + ' al ' + Math.min(desde + porPagina, reco.items.length) + '.'
         : '') +
       '</p>' +
       debugPanel(state) +
@@ -886,7 +1548,11 @@
     //
     // El punto es la última red: una zona que no cruce con el vocabulario
     // —"Cuarto de residuos", "Subestación eléctrica"— se sigue leyendo.
-    var dibujado = (window.GDF.iconos && window.GDF.iconos.icono(a.label)) || '';
+    // `iconoClave` permite buscar el dibujo con un nombre distinto al que se
+    // muestra. Lo usa Arriendo, que enseña la etiqueta de Fincaraíz ("Zonas
+    // Verdes") pero busca el icono por la del vocabulario ("Zona verde").
+    // Compra no lo manda y sigue buscando por `label`, como siempre.
+    var dibujado = (window.GDF.iconos && window.GDF.iconos.icono(a.iconoClave || a.label)) || '';
     var ico = a.icon
       ? '<img src="' + esc(a.icon) + '" alt="" loading="lazy" />'
       : dibujado || '<span class="gdf-amenity-punto">•</span>';
@@ -894,7 +1560,7 @@
     return (
       '<div class="gdf-amenity' + (coincide ? ' coincide' : '') + '"' + delay + '>' +
       ico + '<span class="gdf-amenity-label">' + esc(a.label) + '</span>' +
-      (coincide ? '<span class="gdf-amenity-check" aria-hidden="true">✓</span>' : '') +
+      (coincide ? '<span class="gdf-amenity-check" aria-hidden="true">' + ic('check') + '</span>' : '') +
       '</div>'
     );
   }
@@ -910,7 +1576,7 @@
 
     return (
       '<div class="gdf-project-entorno destacado">' +
-      '<div class="gdf-entorno-titulo">Tiene lo que buscas ✓</div>' +
+      '<div class="gdf-entorno-titulo">Tiene lo que buscas ' + ic('check') + '</div>' +
       '<div class="gdf-project-amenities' + marcaEnCuadricula(amenidades) + '">' + items + '</div>' +
       '</div>'
     );
@@ -994,17 +1660,19 @@
     // asi que el navegador tiraba la declaracion ENTERA y la tarjeta salia sin
     // foto — sin error de consola, solo un hueco. Antes no se notaba porque
     // solo habia foto si habia `local`, y entonces tambien habia `grad`.
-    var fondo = local.grad || 'linear-gradient(135deg,var(--marca),var(--marca-medio))';
+    // `--fondo-sin-foto` deja a una marca cambiar ese degradado por un color
+    // liso (Leadify lo hace en styles.css); sin la variable, el de siempre.
+    var fondo = local.grad || 'var(--fondo-sin-foto, linear-gradient(135deg,var(--marca),var(--marca-medio)))';
     var headerStyle = foto
       ? "background:url('" + foto + "') center/cover no-repeat, " + fondo
       : 'background:' + fondo;
-    var emojiHtml = foto ? '' : '<span class="emoji">' + (local.emoji || '🏢') + '</span>';
+    var emojiHtml = foto ? '' : '<span class="emoji">' + ic('edificio') + '</span>';
 
     // El modelo puntúa (compatibilidad); si algún día no lo mandara, se muestra
     // la posición en vez de un "% match" inventado.
     var badge =
       vm.score != null
-        ? '<span class="gdf-project-badge">' + vm.score + '% match</span>'
+        ? '<span class="gdf-project-badge"><span class="gdf-match-cifra" data-hasta="' + vm.score + '">' + vm.score + '</span>% match</span>'
         : '<span class="gdf-project-badge">#' + (i + 1) + '</span>';
 
     var habLabel = etiquetaHabitaciones(vm.habitaciones);
@@ -1019,7 +1687,7 @@
     // etiqueta de arriba, y esa es información que decide una compra — no
     // puede quedar mezclada entre habitaciones y baños como una etiqueta más.
     var subsidioHtml = sim.aptoParaSubsidio(vm.vis, vm.precioCop)
-      ? '<div class="gdf-project-subsidio">🏅 Apto para subsidio' +
+      ? '<div class="gdf-project-subsidio">' + ic('subsidio') + ' Apto para subsidio' +
         (montoSubsidio ? '<span class="monto">hasta ' + esc(sim.pesos(montoSubsidio)) + '</span>' : '') +
         '</div>'
       : '';
@@ -1081,35 +1749,62 @@
       // usuario acaba de elegir en el mapa y lo que le deja reconocer cual de
       // sus zonas es esta. Debajo la direccion exacta, en tono mas bajo:
       // interesa cuando ya decidio mirar el proyecto, no antes.
-      (vm.ubicacion ? '<div class="gdf-project-loc">📍 ' + esc(vm.ubicacion) + '</div>' : '') +
-      (vm.direccion ? '<div class="gdf-project-dir">' + esc(vm.direccion) + '</div>' : '') +
+      (vm.ubicacion ? '<div class="gdf-project-loc">' + ic('ubicacion') + ' ' + esc(vm.ubicacion) + '</div>' : '') +
+      direccionHtml(vm.direccion) +
       '<div class="gdf-project-tags">' + especificaciones + '</div>' +
-      accionesContacto(vm, state) +
       avisoHab +
-      // Por qué quedó en esta posición. Lo redacta js/recommender.js con los
+      // Por qué quedó en esta posición. Lo arma js/recommender.js con los
       // mismos criterios del scoring, para que el % del badge no sea un número
       // que aparece sin explicación.
-      (vm.razon ? '<p class="gdf-project-razon">' + esc(vm.razon) + '</p>' : '') +
+      razonHtml(vm.razon) +
       amenidadesCoincidenHtml(vm.amenidades, state.answers.entorno_deseado) +
+      // LAS ACCIONES AL PIE (T9): primero se entiende el proyecto, después se
+      // actúa. `margin-top: auto` en CSS las alinea entre tarjetas de distinto
+      // alto. El detalle (planos y todo lo que incluye) va debajo porque se
+      // despliega y empujaría los botones fuera de vista.
+      accionesContacto(vm, state) +
       detalleProyecto(vm, state) +
       '</div>' +
       '</div>'
     );
   }
 
-  // EL BOTON DE WHATSAPP QUEDA PAUSADO A PROPOSITO: sin un WHATSAPP_NUMERO
-  // real en js/config.js, wa.me abre un chat sin destinatario fijo, que no es
-  // lo que promete el botón. Se vuelve a mostrar agregando de nuevo el <a>
-  // de abajo (ya armado, con su mensaje) en cuanto haya un número real.
-  function accionesContacto(vm, state) {
+  /**
+   * La dirección exacta de la tarjeta. Algunas fichas la publican con
+   * "(Dirección provisional)" pegado al texto: se quita el paréntesis y se
+   * dice con una etiqueta aparte, que se lee ordenada y sigue siendo honesta.
+   */
+  var RE_DIR_PROVISIONAL = /\s*\(\s*direcci[oó]n provisional\s*\)\s*/i;
+  function direccionHtml(direccion) {
+    if (!direccion) return '';
+    var provisional = RE_DIR_PROVISIONAL.test(direccion);
+    var limpia = String(direccion).replace(RE_DIR_PROVISIONAL, ' ').replace(/\s+,/g, ',').replace(/\s{2,}/g, ' ').trim();
     return (
-      '<div class="gdf-project-acciones">' +
-      '<button class="gdf-btn-primary enabled gdf-project-llamar" data-action="llamarProyecto" data-value="' + esc(vm.id) + '">' +
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6.2 6.2l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>' +
-      'Llamar</button>' +
-      /* '<a class="gdf-project-whatsapp" data-action="whatsapp" href="' + esc(urlWhatsapp(vm, state)) + '" target="_blank" rel="noopener">' +
-      '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.4-.5c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>' +
-      'WhatsApp</a>' + */
+      '<div class="gdf-project-dir">' + esc(limpia) +
+      (provisional ? ' <span class="gdf-dir-confirmar">Dirección por confirmar</span>' : '') +
+      '</div>'
+    );
+  }
+
+  /**
+   * La razón del match: encabezado por puesto, máximo tres motivos con su
+   * etiqueta y, aparte, lo que no encaja (ver razonDeMatch en recommender.js).
+   */
+  function razonHtml(r) {
+    if (!r || (!r.puntos.length && !r.considerar)) return '';
+    return (
+      '<div class="gdf-project-razon">' +
+      (r.titulo ? '<div class="gdf-razon-titulo">' + esc(r.titulo) + '</div>' : '') +
+      (r.puntos.length
+        ? '<ul class="gdf-razon-lista">' +
+          r.puntos.map(function (p) {
+            return '<li>' + ic('check') + '<span><b>' + esc(p.etiqueta) + ':</b> ' + esc(p.texto) + '</span></li>';
+          }).join('') +
+          '</ul>'
+        : '') +
+      (r.considerar
+        ? '<p class="gdf-razon-considerar"><b>A considerar:</b> ' + esc(r.considerar) + '</p>'
+        : '') +
       '</div>'
     );
   }
@@ -1117,16 +1812,25 @@
   // El número de WhatsApp sale de la configuración (`WHATSAPP_NUMERO` en
   // js/config.js, en formato internacional sin "+"). Sin número, wa.me abre
   // WhatsApp con el mensaje listo para que la persona elija a quién mandarlo.
-  // Solo la usa el `<a>` comentado de accionesContacto: al reactivarlo, esta
-  // función ya está lista y no hay que tocarla.
-  function urlWhatsapp(vm, state) {
+  function accionesContacto(vm, state) {
     var numero = String((window.GDF_CONFIG && window.GDF_CONFIG.WHATSAPP_NUMERO) || '').replace(/\D/g, '');
     var quien = (state.nombre || '').trim();
     var mensaje =
       'Hola, me interesa el proyecto ' + vm.nombre +
       (vm.ubicacion ? ' (' + vm.ubicacion + ')' : '') +
       '. Vengo de Leadify' + (quien ? ', mi nombre es ' + quien : '') + '.';
-    return 'https://wa.me/' + numero + '?text=' + encodeURIComponent(mensaje);
+    var url = 'https://wa.me/' + numero + '?text=' + encodeURIComponent(mensaje);
+    return (
+      '<div class="gdf-project-acciones">' +
+      // La principal dispara la llamada de Manuela (ver dispatch en main.js);
+      // la secundaria es un enlace. El peso visual dice esa diferencia.
+      '<button class="gdf-btn-primary enabled gdf-project-llamar" data-action="llamarProyecto" data-value="' + esc(vm.id) + '">' +
+      ic('telefono') + 'Hablar con un asesor</button>' +
+      '<a class="gdf-project-whatsapp" data-action="whatsapp" href="' + esc(url) + '" target="_blank" rel="noopener">' +
+      '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.5 14.4c-.3-.1-1.8-.9-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6l.4-.5c.2-.2.2-.3.3-.5.1-.2 0-.4 0-.5l-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.2-.3-.3-.6-.4zM12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z"/></svg>' +
+      'Escribir por WhatsApp</a>' +
+      '</div>'
+    );
   }
 
   // ---------------------------------------------------------------------
@@ -1225,9 +1929,9 @@
     if (!url) return '';
     return (
       '<a class="gdf-tour360" href="' + esc(url) + '" target="_blank" rel="noopener">' +
-      '<span class="gdf-tour360-icon">🧭</span>' +
+      '<span class="gdf-tour360-icon">' + ic('brujula') + '</span>' +
       '<span class="gdf-tour360-texto">' + esc(etiqueta) + '</span>' +
-      '<span class="gdf-tour360-flecha">↗</span>' +
+      '<span class="gdf-tour360-flecha">' + ic('enlace-externo') + '</span>' +
       '</a>'
     );
   }
@@ -1280,7 +1984,10 @@
     var urlFicha = local.url || vm.fichaUrl || '';
     var fichaHtml = urlFicha
       ? '<a class="gdf-project-ficha" href="' + esc(urlFicha) + '" target="_blank" rel="noopener">' +
-        txt('fichaOficial', 'Ver ficha oficial en ' + ident('dominio', 'colsubsidio.com') + ' ↗') +
+        // El texto viene del tenant con su propia flecha al final (marca.js es
+        // generado y no se edita): se le quita y se pone el icono.
+        String(txt('fichaOficial', 'Ver ficha oficial en ' + ident('dominio', 'colsubsidio.com')))
+          .replace(/\s*\u2197\s*$/, '') + ' ' + ic('enlace-externo') +
         '</a>'
       : '';
     // Recorrido del EDIFICIO (zonas comunes, fachada...), distinto del que
@@ -1315,7 +2022,7 @@
       return (
         '<details class="gdf-project-detalle"' + (abierto ? ' open' : '') + ' data-action="noop" data-proyecto="' + esc(vm.id) + '">' +
         '<summary><span class="gdf-detalle-titulo">Ver todo lo que incluye</span>' +
-        '<span class="gdf-detalle-chevron">▾</span></summary>' +
+        '<span class="gdf-detalle-chevron">' + ic('chevron-abajo') + '</span></summary>' +
         '<div class="gdf-detalle-body">' +
         restoAmenidadesHtml +
           '<p class="gdf-detalle-vacio">' + motivo + '</p>' +
@@ -1367,7 +2074,7 @@
     return (
       '<details class="gdf-project-detalle"' + (abierto ? ' open' : '') + ' data-action="noop" data-proyecto="' + esc(vm.id) + '">' +
       '<summary><span class="gdf-detalle-titulo">' + esc(resumen) + '</span>' +
-      '<span class="gdf-detalle-chevron">▾</span></summary>' +
+      '<span class="gdf-detalle-chevron">' + ic('chevron-abajo') + '</span></summary>' +
       '<div class="gdf-detalle-body">' +
       restoAmenidadesHtml +
       tabsHtml +
@@ -1429,7 +2136,7 @@
 
     return (
       '<div class="gdf-debug">' +
-      '<div class="gdf-debug-title">🔍 Depuración del motor de recomendación</div>' +
+      '<div class="gdf-debug-title">' + ic('buscar') + ' Depuración del motor de recomendación</div>' +
       '<div class="gdf-debug-meta">' +
       'origen: <b>' + esc(reco.items[0] ? reco.items[0].origen : '—') +
       (reco.aproximado ? ' (aproximado)' : '') + '</b>' +
@@ -1485,16 +2192,16 @@
   // veredicto de DESPUÉS de la llamada real, con lo que la persona dijo de
   // verdad. Los dos pueden decir cosas distintas — es información, no un bug.
   var TEMPERATURA = {
-    caliente: { emoji: '🔥', label: 'Caliente', clase: 'gdf-temp--caliente' },
-    tibio: { emoji: '🌤️', label: 'Tibio', clase: 'gdf-temp--tibio' },
-    frio: { emoji: '❄️', label: 'Frío', clase: 'gdf-temp--frio' },
+    caliente: { icono: 'temp-caliente', label: 'Caliente', clase: 'gdf-temp--caliente' },
+    tibio: { icono: 'temp-tibio', label: 'Tibio', clase: 'gdf-temp--tibio' },
+    frio: { icono: 'temp-frio', label: 'Frío', clase: 'gdf-temp--frio' },
   };
 
   function resumenLlamadaHtml(resumen) {
     if (resumen.estado === 'esperando') {
       return (
         '<div class="gdf-confirm-resumen gdf-confirm-resumen--esperando">' +
-        '🎙️ Manuela está en la llamada — el resumen aparece aquí apenas cuelgue.' +
+        ic('microfono') + ' Manuela está en la llamada. El resumen aparecerá aquí cuando termine.' +
         '</div>'
       );
     }
@@ -1511,7 +2218,7 @@
     var d = resumen.datos;
     var temp = TEMPERATURA[d.temperatura_lead] || null;
     var tempHtml = temp
-      ? '<span class="gdf-temp-badge ' + temp.clase + '">' + temp.emoji + ' ' + esc(temp.label) + '</span>'
+      ? '<span class="gdf-temp-badge ' + temp.clase + '">' + ic(temp.icono) + ' ' + esc(temp.label) + '</span>'
       : '';
 
     var filas = '';
@@ -1528,17 +2235,25 @@
     // ausente (null, porque no salió en la conversación) no se pinta como
     // "No" — se omite, que es honesto con lo que de verdad se sabe.
     var chips = [];
-    if (d.presupuesto_confirmado === true) chips.push('💰 Presupuesto confirmado');
-    if (d.tomador_de_decision === true) chips.push('🙋 Toma la decisión');
+    if (d.presupuesto_confirmado === true) chips.push(ic('presupuesto') + ' Presupuesto confirmado');
+    if (d.tomador_de_decision === true) chips.push(ic('decisor') + ' Toma la decisión');
     if (d.nivel_de_urgencia) {
-      chips.push('⏱ Urgencia ' + (d.nivel_de_urgencia === 'high' ? 'alta' : d.nivel_de_urgencia === 'medium' ? 'media' : 'baja'));
+      chips.push(ic('reloj') + ' Urgencia ' + (d.nivel_de_urgencia === 'high' ? 'alta' : d.nivel_de_urgencia === 'medium' ? 'media' : 'baja'));
     }
-    if (d.fecha_de_seguimiento) chips.push('📅 Seguimiento: ' + esc(d.fecha_de_seguimiento));
+    if (d.cita_agendada === true) chips.push(ic('calendario') + ' Cita confirmada');
+    if (d.fecha_de_seguimiento) chips.push(ic('calendario') + ' ' + (d.cita_agendada === true ? 'Cita' : 'Seguimiento') + ': ' + esc(d.fecha_de_seguimiento));
     var chipsHtmlResumen = chips.length
       ? '<div class="gdf-confirm-resumen-chips">' +
         chips.map(function (c) { return '<span class="gdf-chip">' + c + '</span>'; }).join('') +
         '</div>'
       : '';
+
+    if (d.sin_contacto === true) {
+      filas +=
+        '<p class="gdf-confirm-resumen-reco"><strong>Para que Manuela hable contigo:</strong> ' +
+        'si tienes iPhone, desactiva Ajustes &gt; Teléfono &gt; Filtrar llamadas de desconocidos, o contesta cuando suene. ' +
+        'Mientras tanto, un asesor te escribirá por WhatsApp.</p>';
+    }
 
     return (
       '<div class="gdf-confirm-resumen gdf-confirm-resumen--listo">' +
@@ -1552,9 +2267,97 @@
   // Cierre del flujo. Elegir el proyecto y tocar "Llamar" YA es la
   // confirmación: acá no se pide otra acción para lograr lo que el usuario ya
   // pidió. Solo se cierra y se dice qué sigue.
+  /**
+   * El cierre de Arriendo. Bifurca ANTES de `confirmacion()` por lo mismo que
+   * `resultadoArriendo`: esa pantalla se apoya en `state.lead` (que Arriendo
+   * no calcula, ver `avanzarQuiz`) y en la constructora y el subsidio del
+   * proyecto, que en un arriendo no existen.
+   *
+   * Lo que sí es idéntico es el relato de la llamada: los mismos tres estados
+   * de `state.llamada` que pinta Compra, porque es el mismo POST /api/llamar.
+   */
+  function confirmacionArriendo(state, derived) {
+    var firstName = state.nombre.trim().split(' ')[0];
+    var elegido = null;
+    (state.arriendo.items || []).forEach(function (item) {
+      if (String(item.id_inmueble) === String(state.chosen)) elegido = item;
+    });
+
+    var nombreInmueble = elegido ? elegido.nombre : '';
+    var foto = ((elegido && elegido.imagenes) || [])[0] || '';
+    var canon = elegido && elegido.precio_canon_cop
+      ? '$' + Math.round(elegido.precio_canon_cop).toLocaleString('es-CO') + '/mes'
+      : '';
+
+    var proyectoHtml = elegido
+      ? '<div class="gdf-confirm-proyecto">' +
+        (foto ? '<div class="gdf-confirm-foto" style="background-image:url(\'' + esc(foto) + '\')"></div>' : '') +
+        '<div class="gdf-confirm-proyecto-info">' +
+        '<div class="gdf-confirm-proyecto-nombre">' + esc(nombreInmueble) + '</div>' +
+        (elegido.localidad_nombre
+          ? '<div class="gdf-confirm-proyecto-loc">' + ic('ubicacion') + ' ' + esc(elegido.localidad_nombre) + '</div>' : '') +
+        (canon
+          ? '<div class="gdf-confirm-proyecto-precio">Arriendo ' + esc(canon) +
+            (elegido.area_m2 ? ' · ' + esc(elegido.area_m2) + ' m²' : '') + '</div>' : '') +
+        '</div></div>'
+      : '';
+
+    var chipsHtml = derived.perfilChips
+      .map(function (c) {
+        return '<span class="gdf-chip' + (c.hi ? ' hi' : '') + '">' + esc(c.text) + '</span>';
+      })
+      .join('');
+
+    // Los mismos tres estados y textos que la confirmación de Compra (T10).
+    var llamada = state.llamada;
+    var extra = '';
+    if (llamada.estado === 'cargando') {
+      extra = '<div class="gdf-confirm-llamada gdf-confirm-llamada--cargando">' + ic('senal') +
+        ' Conectando con Manuela, nuestra asistente. Puede tardar unos segundos.</div>';
+    } else if (llamada.estado === 'lista') {
+      extra = '<div class="gdf-confirm-llamada gdf-confirm-llamada--ok">' + ic('telefono') + ' ' + esc(llamada.mensaje) + '</div>' + notaDemo();
+    } else if (llamada.estado === 'error') {
+      extra = '<div class="gdf-confirm-llamada gdf-confirm-llamada--error">' + ic('alerta') + ' ' + esc(llamada.mensaje) +
+        ' <button class="gdf-llamada-reintentar" data-action="reintentarLlamada">Reintentar</button></div>';
+    }
+
+    var contactoHtml =
+      '<div class="gdf-confirm-contacto">' +
+      '<div class="gdf-confirm-contacto-avatar">' + ic('telefono') + '</div>' +
+      '<div class="gdf-confirm-contacto-info">' +
+      '<div class="gdf-confirm-contacto-titulo">Te contactamos por llamada</div>' +
+      '<div class="gdf-confirm-contacto-tel">' + esc(state.telefono.trim()) + '</div>' +
+      '</div></div>';
+
+    // Mismo orden que Compra: lo que pasa, por dónde te contactamos, el
+    // resumen de la llamada cuando llegue, el inmueble y tu perfil. Sin el
+    // bloque de calificación del lead, que Arriendo no calcula.
+    return (
+      '<div class="gdf-screen gdf-confirmacion">' +
+      '<div class="gdf-confirm-hero gdf-confirm-hero--ok">' +
+      '<div class="gdf-confirm-icon"><span class="gdf-confirm-check">' + ic('check') + '</span></div>' +
+      '<h2>¡Gracias por tu interés' + (firstName ? ', ' + esc(firstName) : '') + '!</h2>' +
+      '<p>Te interesa <strong>' + esc(nombreInmueble) + '</strong>. Te llamamos para confirmar ' +
+      'disponibilidad y coordinar la visita.</p>' +
+      extra +
+      '</div>' +
+      contactoHtml +
+      resumenLlamadaHtml(state.resumen) +
+      proyectoHtml +
+      '<div class="gdf-confirm-bloque">' +
+      '<h3>Tu perfil</h3>' +
+      '<div class="gdf-chips">' + chipsHtml + '</div>' +
+      '</div>' +
+      '<button class="gdf-back-btn" data-action="goSeleccion">' + ic('flecha-izquierda') + ' Cambiar mi selección</button>' +
+      '<button class="gdf-restart-btn" data-action="restart">' + ic('reiniciar') + ' Empezar de nuevo</button>' +
+      '</div>'
+    );
+  }
+
   function confirmacion(state, derived) {
+    if (state.answers.operacion === 'arriendo') return confirmacionArriendo(state, derived);
     var lead = state.lead;
-    var firstName = state.nombre.trim().split(' ')[0] || 'constructor';
+    var firstName = state.nombre.trim().split(' ')[0];
 
     var sim = window.GDF.simulador;
     var elegido = null;
@@ -1587,7 +2390,7 @@
       (fotoCierre ? '<div class="gdf-confirm-foto" style="background-image:url(\'' + esc(fotoCierre) + '\')"></div>' : '') +
       '<div class="gdf-confirm-proyecto-info">' +
       '<div class="gdf-confirm-proyecto-nombre">' + esc(nombreProyecto) + '</div>' +
-      (elegido && elegido.ubicacion ? '<div class="gdf-confirm-proyecto-loc">📍 ' + esc(elegido.ubicacion) + '</div>' : '') +
+      (elegido && elegido.ubicacion ? '<div class="gdf-confirm-proyecto-loc">' + ic('ubicacion') + ' ' + esc(elegido.ubicacion) + '</div>' : '') +
       (elegido
         ? '<div class="gdf-confirm-proyecto-precio">Desde ' + esc(sim.pesos(elegido.precioCop)) +
           (elegido.area ? ' · ' + elegido.area + ' m²' : '') + '</div>'
@@ -1602,19 +2405,20 @@
       .join('');
 
     var notesHtml = lead.notes
+      .filter(notaVisible)
       .map(function (n) {
         return '<span class="gdf-lead-note">' + esc(n) + '</span>';
       })
       .join('');
 
-    var leadTitle = lead.status === 'ready' ? '¡Listo para hablar con un asesor!' : 'Vamos construyendo tu camino';
+    var leadTitle = lead.status === 'ready' ? 'Tu perfil está listo para un asesor' : 'Seguimos afinando tu búsqueda';
     var leadSub =
       lead.status === 'ready'
-        ? 'Tu perfil y tu financiación están listos. Un asesor te contacta muy pronto.'
-        : 'Sigamos afinando tu compra ideal — te acompañamos con información y seguimiento.';
+        ? 'Con lo que nos contaste, un asesor ya puede ayudarte.'
+        : 'Te acompañamos con información y seguimiento mientras defines tu compra.';
     var leadBloqueHtml =
       '<div class="gdf-lead-badge ' + lead.status + '">' +
-      '<span class="icon">' + lead.icon + '</span>' +
+      '<span class="icon">' + ic(lead.icon) + '</span>' +
       '<div class="title">' + leadTitle + '</div>' +
       '<div class="subcopy">' + leadSub + '</div>' +
       '<div class="gdf-lead-notes">' + notesHtml + '</div>' +
@@ -1628,7 +2432,7 @@
     // que le va a sonar el teléfono.
     var contactoHtml =
       '<div class="gdf-confirm-contacto">' +
-      '<div class="gdf-confirm-contacto-avatar">📞</div>' +
+      '<div class="gdf-confirm-contacto-avatar">' + ic('telefono') + '</div>' +
       '<div class="gdf-confirm-contacto-info">' +
       '<div class="gdf-confirm-contacto-titulo">Te contactamos por llamada</div>' +
       '<div class="gdf-confirm-contacto-tel">' + telefono + '</div>' +
@@ -1644,20 +2448,20 @@
     //   error    -> qué falló, con botón para reintentar sin perder nada.
     var llamada = state.llamada;
     var heroClase = 'gdf-confirm-hero--ok';
-    var heroIcono = '<span class="gdf-confirm-check">✓</span>';
-    var heroTitulo = '¡Gracias por tu interés, ' + esc(firstName) + '!';
+    var heroIcono = '<span class="gdf-confirm-check">' + ic('check') + '</span>';
+    var heroTitulo = '¡Gracias por tu interés' + (firstName ? ', ' + esc(firstName) : '') + '!';
     var heroTexto =
       'Elegiste <strong>' + esc(nombreProyecto) + '</strong>. Un asesor de vivienda de ' +
       esc(bonita(duenaProyecto) || nombreMarca()) + ' te acompaña desde acá.';
     var extra = '';
 
     if (llamada.estado === 'cargando') {
-      extra = '<div class="gdf-confirm-llamada gdf-confirm-llamada--cargando">📡 Conectando con Manuela…' +
-        '<br /><small>Puede tardar unos segundos si el servidor estaba dormido.</small></div>';
+      extra = '<div class="gdf-confirm-llamada gdf-confirm-llamada--cargando">' + ic('senal') +
+        ' Conectando con Manuela, nuestra asistente. Puede tardar unos segundos.</div>';
     } else if (llamada.estado === 'lista') {
-      extra = '<div class="gdf-confirm-llamada gdf-confirm-llamada--ok">📞 ' + esc(llamada.mensaje) + '</div>';
+      extra = '<div class="gdf-confirm-llamada gdf-confirm-llamada--ok">' + ic('telefono') + ' ' + esc(llamada.mensaje) + '</div>' + notaDemo();
     } else if (llamada.estado === 'error') {
-      extra = '<div class="gdf-confirm-llamada gdf-confirm-llamada--error">⚠️ ' + esc(llamada.mensaje) +
+      extra = '<div class="gdf-confirm-llamada gdf-confirm-llamada--error">' + ic('alerta') + ' ' + esc(llamada.mensaje) +
         ' <button class="gdf-llamada-reintentar" data-action="reintentarLlamada">Reintentar</button></div>';
     }
 
@@ -1684,15 +2488,103 @@
       '<h3>Tu perfil</h3>' +
       '<div class="gdf-chips">' + chipsHtml + '</div>' +
       '</div>' +
-      '<button class="gdf-back-btn" data-action="goSeleccion">← Cambiar mi selección</button>' +
-      '<button class="gdf-restart-btn" data-action="restart">↺ Empezar de nuevo</button>' +
+      '<button class="gdf-back-btn" data-action="goSeleccion">' + ic('flecha-izquierda') + ' Cambiar mi selección</button>' +
+      '<button class="gdf-restart-btn" data-action="restart">' + ic('reiniciar') + ' Empezar de nuevo</button>' +
       '</div>'
+    );
+  }
+
+  /**
+   * Visor de fotos a pantalla completa. Se pinta por ENCIMA de la pantalla
+   * que haya, no en lugar de ella: `state.screen` no cambia, así que al
+   * cerrarlo la lista sigue en la misma página y con el mismo pliego abierto.
+   *
+   * EL FONDO ES LA MISMA FOTO, ampliada y desenfocada. Un velo negro plano
+   * funciona, pero deja la foto flotando en el vacío; con el desenfoque
+   * detrás, el color de la propia imagen llena la pantalla y el inmueble se
+   * sigue leyendo aunque la foto sea vertical y ocupe media pantalla.
+   */
+  function visorFotos(state) {
+    var v = state.visor;
+    if (!v) return '';
+    var url = v.fotos[v.i];
+    var varias = v.fotos.length > 1;
+    var flecha = function (paso, clase, signo, etiqueta) {
+      return (
+        '<button class="gdf-visor-flecha ' + clase + '" data-action="visorMover" data-paso="' + paso +
+        '" aria-label="' + etiqueta + '">' + signo + '</button>'
+      );
+    };
+    return (
+      // El clic en el fondo cierra; el marco de adentro lleva `noop` para que
+      // tocar la foto o las flechas no lo cierre por burbujeo.
+      '<div class="gdf-visor" data-action="cerrarVisor">' +
+      '<div class="gdf-visor-fondo" style="background-image:url(\'' + esc(url) + '\')"></div>' +
+      '<button class="gdf-visor-cerrar" data-action="cerrarVisor" aria-label="Cerrar">' + ic('cerrar', { tam: 18 }) + '</button>' +
+      '<div class="gdf-visor-marco" data-action="noop">' +
+      (varias ? flecha('-1', 'izq', ic('flecha-izquierda', { tam: 22 }), 'Foto anterior') : '') +
+      '<img class="gdf-visor-foto" src="' + esc(url) + '" alt="' +
+      esc(v.nombre || 'Foto del inmueble') + ' — foto ' + (v.i + 1) + '">' +
+      (varias ? flecha('1', 'der', ic('flecha-derecha', { tam: 22 }), 'Foto siguiente') : '') +
+      '</div>' +
+      '<div class="gdf-visor-pie" data-action="noop">' +
+      (v.nombre ? '<span class="gdf-visor-nombre">' + esc(v.nombre) + '</span>' : '') +
+      '<span class="gdf-visor-contador">' + (v.i + 1) + ' / ' + v.fotos.length + '</span>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  /**
+   * Hoja "Antes de llamarte" (design/crm/CONSENTIMIENTO.md). Sale al tocar "Hablar con un asesor" en un
+   * proyecto de otra empresa: la llamada solo se dispara con la casilla marcada, y entonces el lead se comparte
+   * con esa empresa. "Ahora no" o el fondo la cierran sin llamar. La casilla se actualiza por DOM
+   * (updatePermisoDOM en main.js) para no repintar la lista de resultados.
+   */
+  function permisoLlamada(state) {
+    var p = state.permiso;
+    if (!p) return '';
+    var C = window.GDF.consentimiento;
+    var dueno = C.duenoDeElegido(state, p.id);
+    if (!dueno) return '';
+    var quien = (dueno.tipo === 'inmobiliaria' ? 'la inmobiliaria ' : '') + dueno.nombre;
+    return (
+      '<div class="gdf-permiso" data-action="cancelarPermiso">' +
+      '<div class="gdf-permiso-hoja" role="dialog" aria-modal="true" aria-labelledby="permisoTitulo" data-action="noop">' +
+      '<h2 id="permisoTitulo">Antes de llamarte</h2>' +
+      '<p>Manuela, la asistente virtual de Leadify, te va a llamar para agendar tu visita a <b>' +
+      esc(dueno.proyecto) + '</b>. Para que el equipo de <b>' + esc(quien) +
+      '</b> te atienda, necesitamos tu permiso para compartirle tus datos.</p>' +
+      '<label class="gdf-consent gdf-permiso-casilla" data-action="togglePermiso" role="checkbox" tabindex="0" aria-checked="' +
+      (p.aceptado ? 'true' : 'false') + '">' +
+      '<span class="box' + (p.aceptado ? ' checked' : '') + '">' + (p.aceptado ? ic('check') : '') + '</span>' +
+      '<span class="text">' + C.compartir(dueno).html + '</span>' +
+      '</label>' +
+      '<button class="gdf-btn-primary' + (p.aceptado ? ' enabled' : '') + '" data-action="confirmarPermiso">' +
+      ic('telefono') + 'Llamarme ahora</button>' +
+      '<button class="gdf-permiso-no" type="button" data-action="cancelarPermiso">Ahora no</button>' +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  // Aviso fijo en los formularios con la marca de una empresa sin acuerdo (js/consentimiento.js).
+  function bandaDemoMarca() {
+    var C = window.GDF.consentimiento;
+    if (!C || !C.esDemoDeMarca()) return '';
+    return (
+      '<div class="gdf-banda-demo" role="note">' + ic('alerta', { tam: 14 }) +
+      '<span><b>Demostración de Leadify.</b> No es un formulario oficial de ' + esc(nombreMarca()) +
+      ': no guarda tus datos, no se los envía a esa empresa y no hace llamadas.</span></div>'
     );
   }
 
   function renderApp(state, derived) {
     var screenHtml;
     switch (state.screen) {
+      case 'splash':
+        screenHtml = splash();
+        break;
       case 'escarapela':
         screenHtml = escarapela(state);
         break;
@@ -1706,17 +2598,19 @@
         screenHtml = confirmacion(state, derived);
         break;
       default:
-        // Incluye el 'landing' de la portada borrada y el 'splash' de la
-        // entrada borrada: si algo dejo uno de esos valores guardado, se entra
-        // por la escarapela en vez de por una pantalla en blanco.
-        screenHtml = escarapela(state);
+        // Incluye el 'landing' de la portada borrada: si algo dejo ese valor
+        // guardado, se entra por el splash en vez de a una pantalla en blanco.
+        screenHtml = splash();
     }
     // `data-embed` cuelga del shell y no del <body> porque es este nodo el
     // que lleva el grid de dos columnas del media query de 900px: la regla que
     // invierte la escena y el panel tiene que poder leerlo en el mismo
     // elemento sobre el que aplica.
     return (
-      '<div class="gdf-shell"' + (window.GDF_EMBED ? ' data-embed' : '') + '>' + screenHtml + '</div>'
+      bandaDemoMarca() +
+      '<div class="gdf-shell"' + (window.GDF_EMBED ? ' data-embed' : '') + '>' + screenHtml + '</div>' +
+      visorFotos(state) +
+      permisoLlamada(state)
     );
   }
 

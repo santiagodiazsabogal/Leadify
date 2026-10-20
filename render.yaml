@@ -22,3 +22,6 @@ services:
         sync: false
       - key: DAPTA_API_KEY
         sync: false
+      # Postgres de las cuentas de empresas (cadena "Session pooler" de Supabase). Sin ella el login responde 503.
+      - key: DATABASE_URL
+        sync: false

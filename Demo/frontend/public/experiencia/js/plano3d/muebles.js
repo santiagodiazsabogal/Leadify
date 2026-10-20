@@ -17,6 +17,41 @@
     return m;
   }
 
+  /* Varias cajas en UNA geometria: una sola llamada de dibujo en vez de una
+     por caja. Para piezas repetidas y chicas, como las cuatro patas de cada
+     silla, que sueltas sumaban decenas de dibujos por plano. */
+  function unirCajas(cajas) {
+    var pos = [], nor = [], uv = [], idx = [], base = 0;
+    cajas.forEach(function (c) {
+      var g = new THREE.BoxGeometry(c[0], c[1], c[2]);
+      g.translate(c[3], c[4], c[5]);
+      Array.prototype.push.apply(pos, g.attributes.position.array);
+      Array.prototype.push.apply(nor, g.attributes.normal.array);
+      Array.prototype.push.apply(uv, g.attributes.uv.array);
+      var ix = g.index.array;
+      for (var i = 0; i < ix.length; i++) idx.push(ix[i] + base);
+      base += g.attributes.position.count;
+      g.dispose();
+    });
+    var out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    out.setIndex(idx);
+    return out;
+  }
+
+  // Cuatro patas bajo un asiento de w x d, del piso a `alto`.
+  function patas(w, d, alto, mat) {
+    var g = 0.045, mx = w / 2 - g / 2 - 0.03, mz = d / 2 - g / 2 - 0.03;
+    var cajas = [[-mx, -mz], [mx, -mz], [-mx, mz], [mx, mz]].map(function (p) {
+      return [g, alto, g, p[0], alto / 2, p[1]];
+    });
+    var m = new THREE.Mesh(unirCajas(cajas), mat);
+    m.castShadow = true;
+    return m;
+  }
+
   /* Las piezas altas se topan contra el muro. No es cosmetico: los muros son de
      casa de munecas (1.3 m), y un closet de 2 m asoma por encima como si
      atravesara el techo. Se derivan del muro en vez de ser fijas, asi que
@@ -34,6 +69,12 @@
         g.add(caja(w, 0.26, d - almohada, M.linoBlanco, 0, 0.41, almohada / 2));
         g.add(caja(w * 0.88, 0.14, almohada, M.linoAzul, 0, 0.47, -d / 2 + almohada / 2));
         g.add(caja(w, 0.9, 0.06, M.marco, 0, 0.45, -d / 2 - 0.03));
+        // Cojin de acento: sin el, la cama es puro lino/madera y no hay
+        // ningun punto de color con el que el ojo se quede.
+        if (w > 0.9) {
+          var cw = Math.min(0.32, w * 0.22);
+          g.add(caja(cw, 0.1, cw, M.cojinAcento, -w / 2 + cw * 0.7, 0.48, -d / 2 + almohada * 0.7));
+        }
         return g;
       },
       sofa: function (w, d) {
@@ -43,6 +84,15 @@
         g.add(caja(w, 0.4, 0.3, M.tela, 0, 0.5, -d / 2 + 0.15));
         g.add(caja(brazo, 0.3, d, M.tela, -w / 2 + brazo / 2, 0.5, 0));
         g.add(caja(brazo, 0.3, d, M.tela, w / 2 - brazo / 2, 0.5, 0));
+        // Dos cojines de acento contra el respaldo: es lo que corta la
+        // franja de tela lisa mas grande de toda la escena.
+        var cj = Math.min(0.26, d * 0.4);
+        [-1, 1].forEach(function (lado) {
+          g.add(caja(
+            cj, cj * 0.85, cj, M.cojinAcento,
+            lado * Math.min(w * 0.28, w / 2 - brazo - cj * 0.6), 0.48, -d / 2 + 0.28
+          ));
+        });
         return g;
       },
       mesa: function (w, d) {
@@ -61,6 +111,8 @@
         var g = new THREE.Group();
         g.add(caja(w, 0.08, d, M.telaAcento, 0, 0.44, 0));
         g.add(caja(w, 0.48, 0.08, M.telaAcento, 0, 0.68, -d / 2 + 0.05));
+        // Sin patas el asiento flotaba a 40 cm del piso.
+        g.add(patas(w, d, 0.4, M.marco));
         return g;
       },
       meson: function (w, d) {
@@ -85,6 +137,19 @@
         var g = new THREE.Group();
         var h = tope(2);
         g.add(caja(w, h, d, M.marco, 0, h / 2, 0));
+        return g;
+      },
+      /* Biblioteca BAJA. Reusar el closet la volvia un bloque hasta el techo
+         en medio del estudio; a 1 m, con dos entrepanos claros, se lee como
+         mueble de libros y no tapa el ambiente. */
+      biblioteca: function (w, d) {
+        var g = new THREE.Group();
+        var h = tope(1.0);
+        g.add(caja(w, h, d, M.marco, 0, h / 2, 0));
+        g.add(new THREE.Mesh(unirCajas([
+          [w * 0.94, 0.025, d + 0.01, 0, h / 3, 0],
+          [w * 0.94, 0.025, d + 0.01, 0, h * 2 / 3, 0]
+        ]), M.moldura));
         return g;
       },
       escritorio: function (w, d) {
@@ -127,6 +192,24 @@
         g.add(caja(pw, 0.5, pd, M.electro, 0, 0.67, 0));
         return g;
       },
+      // Lampara de pie: base, vara y pantalla calida. Se topa al muro, como
+      // todo lo alto.
+      lampara: function (w, d) {
+        var g = new THREE.Group();
+        var r = Math.min(w, d) / 2, h = tope(1.45);
+        var base = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.55, r * 0.6, 0.04, 12), M.electro);
+        base.position.y = 0.02;
+        g.add(base);
+        var vara = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, h - 0.3, 6), M.electro);
+        vara.position.y = (h - 0.3) / 2;
+        vara.castShadow = true;
+        g.add(vara);
+        var pantalla = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.6, r * 0.85, 0.3, 14), M.pantalla);
+        pantalla.position.y = h - 0.15;
+        pantalla.castShadow = true;
+        g.add(pantalla);
+        return g;
+      },
       tapete: function (w, d) {
         var g = new THREE.Group();
         var m = caja(w, 0.024, d, M.tapete, 0, 0.012, 0, false);
@@ -158,7 +241,7 @@
     bed: 'cama', sofa: 'sofa', table: 'mesa', chair: 'silla', counter: 'meson',
     stove: 'estufa', fridge: 'nevera', wardrobe: 'closet', desk: 'escritorio',
     toilet: 'inodoro', sink: 'lavamanos', shower: 'ducha', rug: 'tapete',
-    plant: 'planta', console: 'consola'
+    plant: 'planta', console: 'consola', shelf: 'biblioteca', lamp: 'lampara'
   };
 
   var cache = null, cacheTecho = null;
@@ -184,4 +267,5 @@
 
   window.GDF3D = window.GDF3D || {};
   window.GDF3D.mueble = mueble;
+  window.GDF3D.unirCajas = unirCajas;
 })();

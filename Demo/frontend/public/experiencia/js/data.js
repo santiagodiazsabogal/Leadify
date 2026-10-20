@@ -1,6 +1,6 @@
 // Datos estáticos: preguntas del quiz, geometría del plano, catálogo de
 // proyectos y avatares. Portado literalmente desde grua-del-futuro/src/App.jsx
-// (mismos campos, mismo orden, mismas opciones) — la única pieza nueva es GENDERS.
+// (mismos campos, mismo orden, mismas opciones).
 (function () {
   'use strict';
 
@@ -89,22 +89,22 @@
       sub: 'Esto define a qué proyectos y subsidios puedes acceder.',
       cols: 1,
       options: [
-        { v: 'VIS', label: 'VIS', hint: 'Vivienda de interés social · aplica subsidio' },
-        { v: 'No VIS', label: 'No VIS', hint: 'Financiación flexible · sin subsidio' },
+        { v: 'VIS', label: 'VIS', chip: 'Vivienda VIS', hint: 'Vivienda de interés social · aplica subsidio' },
+        { v: 'No VIS', label: 'No VIS', chip: 'Vivienda No VIS', hint: 'Financiación flexible · sin subsidio' },
       ],
     },
     {
       id: 'ingresos',
       title: '¿Cuánto suman los ingresos de tu hogar?',
-      sub: 'Esto define a qué proyectos y subsidios puedes acceder.',
+      sub: 'Suma los ingresos mensuales de todas las personas que aportan en tu hogar.',
       cols: 1,
       options: [
         // Las cifras salen del SMMLV que usa js/simulador.js (SUPUESTOS.smmlv,
         // 2026): moverlo allá obliga a rehacer estas pistas.
-        { v: '≤2 SMMLV', label: 'Hasta 2 SMMLV', hint: '≈ hasta $3.5M al mes' },
-        { v: '2–4 SMMLV', label: '2 a 4 SMMLV', hint: '≈ $3.5M – $7.0M' },
-        { v: '4–8 SMMLV', label: '4 a 8 SMMLV', hint: '≈ $7.0M – $14.0M' },
-        { v: '8+ SMMLV', label: 'Más de 8 SMMLV', hint: '≈ más de $14.0M' },
+        { v: '≤2 SMMLV', label: 'Hasta 2 SMMLV', chip: 'Ingresos hasta 2 SMMLV', hint: '≈ hasta $3.5M al mes' },
+        { v: '2–4 SMMLV', label: '2 a 4 SMMLV', chip: 'Ingresos 2 a 4 SMMLV', hint: '≈ $3.5M – $7.0M' },
+        { v: '4–8 SMMLV', label: '4 a 8 SMMLV', chip: 'Ingresos 4 a 8 SMMLV', hint: '≈ $7.0M – $14.0M' },
+        { v: '8+ SMMLV', label: 'Más de 8 SMMLV', chip: 'Ingresos de más de 8 SMMLV', hint: '≈ más de $14.0M' },
       ],
     },
     {
@@ -126,9 +126,9 @@
       sub: 'Así ajustamos el tamaño de tu hogar.',
       cols: 3,
       options: [
-        { v: '1', label: '1' },
-        { v: '2', label: '2' },
-        { v: '3+', label: '3+' },
+        { v: '1', label: '1', chip: '1 habitación' },
+        { v: '2', label: '2', chip: '2 habitaciones' },
+        { v: '3+', label: '3+', chip: '3 o más habitaciones' },
       ],
     },
     // `entorno_deseado` es OPCIONAL en el contrato del modelo, pero se
@@ -203,6 +203,160 @@
     },
   ];
 
+  function porId(lista, id) {
+    for (var i = 0; i < lista.length; i++) {
+      if (lista[i].id === id) return lista[i];
+    }
+    return null;
+  }
+
+  // -------------------------------------------------------------------------
+  // BIFURCACIÓN COMPRA / ARRIENDO
+  // -------------------------------------------------------------------------
+  // `operacion` es la primera pregunta del recorrido, justo después de la
+  // escarapela. Es una grilla simple más — sale gratis del renderer de
+  // siempre (ver `quizPanel` en templates.js) — y `qListFor` (state.js) mira
+  // su respuesta para decidir cuál de los dos arrays de abajo devolver.
+  var OPERACION = {
+    id: 'operacion',
+    title: '¿Qué estás buscando?',
+    sub: 'Elige cómo quieres encontrar tu próximo hogar.',
+    cols: 2,
+    // Sin esto se alcanza a ver el contorno/losa vacía de la casa detrás
+    // del panel: `state.planta` ya existe desde 'startQuiz', antes de
+    // pintar esta primera pregunta (ver sceneBlock() en templates.js).
+    // Mismo mecanismo que `escena: 'mapa'` de la pregunta 'zona', pero
+    // para no pintar NADA en vez de tapar con otra cosa.
+    escena: 'vacio',
+    options: [
+      { v: 'compra', label: 'Comprar' },
+      { v: 'arriendo', label: 'Arrendar' },
+    ],
+  };
+
+  // El formulario de Arriendo (`preguntas arriendo.txt`) reusa tal cual tres
+  // preguntas de Compra por id -- `zona`, `ingresos`, `personas` -- porque
+  // son las mismas preguntas de verdad (ubicación, ingresos del hogar,
+  // personas a cargo) y porque plano3d/perfil.js las reconoce por ESE id
+  // literal para reaccionar (ver ESTILO_A_AMENIDAD más abajo y el comentario
+  // de ETAPAS en plano3d/perfil.js).
+  var TIPO_PROPIEDAD = {
+    id: 'tipo_propiedad',
+    title: '¿Qué propiedad estás buscando?',
+    sub: 'Esto nos ayuda a mostrarte las opciones correctas.',
+    cols: 3,
+    // Va justo después de 'operacion' y todavía no hay nada que construir
+    // (ni siquiera se sabe si es vivienda): mismo `escena: 'vacio'` que esa
+    // pregunta, por la misma razón — ver el comentario de OPERACION arriba.
+    escena: 'vacio',
+    // `chip` es como se lee la respuesta en el resumen (perfilChips en
+    // state.js); `v` es lo que viaja al backend y no se toca.
+    options: [
+      { v: 'Vivienda', label: 'Vivienda', chip: 'Vivienda' },
+      { v: 'Oficinas', label: 'Oficinas', chip: 'Oficina' },
+      { v: 'Bodegas', label: 'Bodegas', chip: 'Bodega' },
+    ],
+  };
+
+  var PRESUPUESTO = {
+    id: 'presupuesto',
+    title: '¿Cuál es tu presupuesto?',
+    sub: 'Canon mensual que estás dispuesto a pagar.',
+    cols: 1,
+    options: [
+      { v: '<1M', label: 'Menos de $1.000.000', chip: 'Hasta $1.000.000' },
+      { v: '1-2M', label: '$1.000.000 – $2.000.000', chip: '$1.000.000 a $2.000.000' },
+      { v: '2-3.5M', label: '$2.000.000 – $3.500.000', chip: '$2.000.000 a $3.500.000' },
+      { v: '>3.5M', label: 'Más de $3.500.000', chip: 'Más de $3.500.000' },
+    ],
+  };
+
+  var MUDANZA = {
+    id: 'mudanza',
+    title: '¿Cuándo proyectas realizar tu mudanza?',
+    sub: 'Así priorizamos disponibilidad con los asesores.',
+    cols: 1,
+    options: [
+      { v: 'inmediato', label: 'Inmediato', chip: 'Mudanza inmediata' },
+      { v: '1_mes', label: 'En 1 mes', chip: 'Mudanza en 1 mes' },
+      { v: '2_3_meses', label: 'En 2 a 3 meses', chip: 'Mudanza en 2 a 3 meses' },
+      { v: '+3_meses', label: 'Más de 3 meses', chip: 'Mudanza en más de 3 meses' },
+    ],
+  };
+
+  // Bloque de 4 contadores en una sola pantalla. REUSA el id 'habitaciones'
+  // a propósito: plano3d/perfil.js lo busca por ese nombre literal para
+  // desbloquear baño/alcobas y para dimensionar la planta (nAlcobas). Ver
+  // answerPreferencias en state.js/main.js: guarda un valor compatible
+  // ('1'|'2'|'3+') en answers.habitaciones ADEMÁS del detalle completo
+  // ({habitaciones, banos, parqueaderos, estrato}) en answers.preferencias.
+  var PREFERENCIAS_ARRIENDO = {
+    id: 'habitaciones',
+    title: 'Selecciona tus preferencias principales',
+    sub: 'Ajusta cada valor con los botones.',
+    type: 'contador',
+    campos: [
+      { id: 'habitaciones', label: 'Habitaciones', min: 1, max: 5, inicial: 1 },
+      { id: 'banos', label: 'Baños', min: 1, max: 4, inicial: 1 },
+      { id: 'parqueaderos', label: 'Parqueaderos', min: 0, max: 3, inicial: 0 },
+      { id: 'estrato', label: 'Estrato', min: 1, max: 6, inicial: 3 },
+    ],
+  };
+
+  // Solo estas opciones de estilo de vida mapean a una amenidad real del
+  // plano 3D (ver GRUPO en plano3d/entorno.js) -- el resto no tiene pieza
+  // equivalente hoy y solo queda en answers.estilo_vida para el resumen, sin
+  // mover el plano. Los valores de la derecha son los `v` EXACTOS que
+  // entiende plano3d/entorno.js, no slugs nuestros.
+  var ESTILO_A_AMENIDAD = {
+    vivo_mascotas: 'zona pet',
+    biciusuario: 'taller de bicicletas',
+    gimnasio_personal: 'gymnasio',
+    aire_libre: 'parque',
+  };
+
+  // REUSA el id 'entorno_deseado' a propósito (ver ESTILO_A_AMENIDAD arriba
+  // y answerEstiloVida en state.js/main.js): así el barrio 3D reacciona en
+  // las opciones mapeadas sin que plano3d/ tenga que aprender un concepto
+  // nuevo. `min: 3` es lo único que distingue este multiselect del de
+  // Compra -- ver quizPanel en templates.js.
+  var ESTILO_VIDA = {
+    id: 'entorno_deseado',
+    title: '¿Cuál es tu estilo de vida?',
+    sub: 'Selecciona mínimo 3 preferencias.',
+    type: 'multiselect',
+    min: 3,
+    options: [
+      { v: 'vivo_solo', label: 'Vivo solo' },
+      { v: 'vivo_ninos', label: 'Vivo con niños' },
+      { v: 'vivo_mascotas', label: 'Vivo con mascotas' },
+      { v: 'discapacidad', label: 'Situación de discapacidad' },
+      { v: 'biciusuario', label: 'Soy biciusuario' },
+      { v: 'gimnasio_personal', label: 'Entreno en gimnasio' },
+      { v: 'aire_libre', label: 'Actividades al aire libre' },
+      { v: 'balcon_terraza', label: 'Con balcón o terraza' },
+      { v: 'zona_ropas', label: 'Con zona de ropas' },
+      { v: 'deposito', label: 'Con depósito' },
+      { v: 'areas_sociales', label: 'Áreas sociales' },
+    ],
+  };
+
+  // Compra: las 7 preguntas de siempre, con `operacion` delante. Arriendo:
+  // el set de preguntas arriba, reusando `zona`/`ingresos`/`personas` de
+  // Compra tal cual (mismo objeto, mismas opciones).
+  var QUESTIONS_COMPRA = [OPERACION].concat(QUESTIONS);
+  var QUESTIONS_ARRIENDO = [
+    OPERACION,
+    TIPO_PROPIEDAD,
+    porId(QUESTIONS, 'zona'),
+    PRESUPUESTO,
+    porId(QUESTIONS, 'ingresos'),
+    porId(QUESTIONS, 'personas'),
+    MUDANZA,
+    PREFERENCIAS_ARRIENDO,
+    ESTILO_VIDA,
+  ];
+
   // NOTA: aquí vivían ROOM_GEO (geometría fija de la planta) y FURN (muebles).
   // Se fueron cuando el quiz pasó a armar el PLANO REAL de un apartamento del
   // catálogo: ya no se dibujan cuartos ni muebles, se recortan piezas de la
@@ -240,14 +394,9 @@
   // Bogotá y la cercanía que importa ahora es entre LOCALIDADES, que llega
   // ya calculada de los límites oficiales en GDF_LOCALIDADES_VECINAS.)
 
-  // Selección de personaje: puramente cosmético (carné + marcador en la
-  // escena). No entra en computeLeadQualification — el PDF del hackathon
-  // marca el género como variable opcional de bajo valor de negocio.
-  var GENDERS = [
-    { v: 'f', label: 'Constructora', emoji: '👷‍♀️' },
-    { v: 'm', label: 'Constructor', emoji: '👷‍♂️' },
-    { v: 'x', label: 'Sin especificar', emoji: '👷' },
-  ];
+  // GENDERS (el personaje del carné, con emojis) se quitó en el rediseño del
+  // formulario (2026-10): el avatar pasó a un icono y ya nadie lo leía.
+  // `state.gender` sigue existiendo, pero nada lo usa para pintar.
 
   // El catalogo lo genera plataforma/motor/generar.py en
   // tenants/<slug>/proyectos.js, que index.html carga ANTES que este archivo.
@@ -298,11 +447,19 @@
 
   window.GDF = window.GDF || {};
   window.GDF.data = {
-    QUESTIONS: QUESTIONS,
+    // QUESTIONS se queda apuntando a Compra por compatibilidad: código que
+    // ya asumía un solo recorrido (js/llamada.js, js/leadify.js, la
+    // restauración de una consulta guardada en main.js) solo corre para
+    // Compra de todos modos, porque Arriendo no llega ni a la llamada de
+    // Manuela ni a Supabase en esta entrega. El código nuevo que sí necesita
+    // saber cuál recorrido está activo usa qListFor() de state.js.
+    QUESTIONS: QUESTIONS_COMPRA,
+    QUESTIONS_COMPRA: QUESTIONS_COMPRA,
+    QUESTIONS_ARRIENDO: QUESTIONS_ARRIENDO,
+    ESTILO_A_AMENIDAD: ESTILO_A_AMENIDAD,
     PROJECTS: PROJECTS,
     AMENITIES: AMENITIES,
     VECINAS: VECINAS,
-    GENDERS: GENDERS,
     LOCALIDADES: LOCALIDADES_BOGOTA,
     OFERTA: OFERTA,
   };

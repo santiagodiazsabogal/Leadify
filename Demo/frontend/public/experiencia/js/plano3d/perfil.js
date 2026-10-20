@@ -4,40 +4,82 @@
 (function () {
   'use strict';
 
-  /* Que ambiente se desbloquea al contestar cada pregunta.
-     El numero es CUANTAS respuestas hacen falta, no el indice de la pregunta:
-     asi reordenar el formulario es cambiar esta tabla y nada mas.
+  /* Que pregunta desbloquea cada ambiente, por ID y no por posicion.
+     Las etapas (CUANTAS respuestas hacen falta) salen del orden real del
+     formulario de la anfitriona: en Leadify, `zona` paso a ser la primera y una
+     tabla de numeros fijos dejo toda la construccion corrida una pregunta
+     (la sala salia antes de contestar el tipo y las alcobas antes de
+     contestar cuantas).
 
-     El orden actual de Leadify (js/data.js, QUESTIONS) es
-     zona · tipo · ingresos · personas · habitaciones · entorno · edad.
-     `zona` va primera (el buscador de ubicacion) y `entorno` sexta.
-     Ninguna de las dos construye nada — `zona` solo ordena los proyectos
-     recomendados y `entorno` son amenidades del conjunto, no de la vivienda.
-     Son los dos pasos con la escena quieta; si molesta, la solucion es
-     reordenar el formulario, no inventarles un efecto falso. */
-  var ETAPAS = {
-    sala: 2,        // tipo (zona va antes y no cuenta)
-    comedor: 3,     // ingresos  (ademas sube los extras de la sala)
-    cocina: 4,      // personas
-    ropas: 4,
-    bano: 5,        // habitaciones
-    alcoba1: 5,
-    alcobas: 5,
-    flexible: 7     // edad
+     `zona` y `entorno_deseado` no construyen nada — la primera solo ordena los
+     proyectos recomendados y la segunda son amenidades del conjunto, no de la
+     vivienda. Son pasos con la escena quieta. Mientras nada se haya
+     desbloqueado la losa lleva el replanteo de obra y la camara encuadra el
+     lote entero (ver `aplicarPlan` en escena.js). */
+  var DESBLOQUEA = {
+    sala: 'tipo',
+    comedor: 'ingresos',     // ademas sube los extras de la sala
+    /* Antes con `edad`, la ultima pregunta: su area ya estaba reservada en el
+       programa completo desde la primera respuesta (asi los muros no bailan),
+       pero sin nadie construyendo ahi se veia como losa cruda pegada a la
+       cocina durante media encuesta. Se adelanta junto al resto de la zona
+       social: `esJoven` ya tiene un default (< 35 anios) para nombrarla antes
+       de saber la edad real, igual que hace con el mobiliario. */
+    flexible: 'ingresos',
+    cocina: 'personas',
+    ropas: 'personas',
+    bano: 'habitaciones',
+    alcoba1: 'habitaciones',
+    alcobas: 'habitaciones'
   };
 
-  /* Nivel de ingresos -> muebles extra en la sala. Es un agregado nuestro: en
-     la maqueta original `ingresos` no tocaba la planta y esa pregunta dejaba
-     la escena sin cambio alguno. No mueve muros, solo amobla. */
+  // El prototipo (Vivienda 3D) no carga la lista de preguntas de Leadify.
+  var ORDEN_PROTOTIPO = ['tipo', 'ingresos', 'personas', 'habitaciones', 'zona', 'entorno_deseado', 'edad'];
+
+  /* ETAPAS depende de QUÉ RECORRIDO está activo (Compra o Arriendo: ver
+     QUESTIONS_COMPRA/QUESTIONS_ARRIENDO en data.js) -- los dos tienen a
+     'ingresos'/'personas'/'habitaciones' en POSICIONES distintas. Por eso
+     NO se puede calcular una sola vez al cargar el script (`answers` ni
+     existe todavía en ese momento): se recalcula en cada llamada a
+     `perfilDesdeRespuestas`, barato porque son un puñado de preguntas. */
+  function ordenPara(answers) {
+    var d = window.GDF && window.GDF.data;
+    var esArriendo = !!(answers && answers.operacion === 'arriendo');
+    var qs = d && (esArriendo ? d.QUESTIONS_ARRIENDO : d.QUESTIONS_COMPRA || d.QUESTIONS);
+    return qs && qs.length ? qs.map(function (q) { return q.id; }) : ORDEN_PROTOTIPO;
+  }
+
+  function etapasPara(answers) {
+    var orden = ordenPara(answers);
+    var e = {};
+    Object.keys(DESBLOQUEA).forEach(function (ambiente) {
+      e[ambiente] = orden.indexOf(DESBLOQUEA[ambiente]) + 1;
+    });
+    return e;
+  }
+
+  // Export solo para inspección en consola -- nadie más lo lee (ver el
+  // valor real, siempre fresco, en `perfil.etapas` que devuelve
+  // `perfilDesdeRespuestas`). Queda fijo al de Compra, el caso por defecto.
+  var ETAPAS = etapasPara({});
+
+  /* Nivel de ingresos -> ACABADOS y extras. No mueve muros: el tamano ya lo
+     fijan tipo y habitaciones, y que el plano salte por el ingreso seria
+     prometer metros que el catalogo no tiene. Lo que cambia es la calidad:
+     pisos (ver `acabado` en floorplan.js) y lo que amuebla la sala.
+     Antes eran solo extras de sala, y dos de los cuatro niveles se veian
+     identicos porque el "piano" nunca cabia: la pregunta no se notaba. */
   var EXTRAS_SALA = {
+    0: [],
     1: [],
     2: ['mesaAuxiliar'],
-    3: ['mesaAuxiliar', 'bar'],
-    4: ['mesaAuxiliar', 'bar', 'piano']
+    3: ['mesaAuxiliar', 'lampara'],
+    4: ['mesaAuxiliar', 'lampara', 'biblioteca', 'plantas']
   };
 
+  // 0 = aun sin contestar: acabado neutro, igual al de siempre.
   function nivelIngresos(answers) {
-    return { '≤2 SMMLV': 1, '2–4 SMMLV': 2, '4–8 SMMLV': 3, '8+ SMMLV': 4 }[answers.ingresos] || 1;
+    return { '≤2 SMMLV': 1, '2–4 SMMLV': 2, '4–8 SMMLV': 3, '8+ SMMLV': 4 }[answers.ingresos] || 0;
   }
 
   function personasACargo(answers) {
@@ -55,17 +97,18 @@
     answers = answers || {};
     paso = paso || 0;
 
+    var etapas = etapasPara(answers);
     var contestadas = paso;
     var n;
-    if (contestadas >= ETAPAS.alcobas && answers.habitaciones) {
+    if (contestadas >= etapas.alcobas && answers.habitaciones) {
       n = answers.habitaciones === '3+' ? 3 : Number(answers.habitaciones);
     } else {
-      n = contestadas >= ETAPAS.cocina ? sugeridaAlcobas(answers) : 2;
+      n = contestadas >= etapas.cocina ? sugeridaAlcobas(answers) : 2;
     }
 
     return {
       paso: contestadas,
-      etapas: ETAPAS,
+      etapas: etapas,
       // Todo lo que no diga 'No VIS' es VIS: el catalogo solo tiene esos dos.
       vis: answers.tipo !== 'No VIS',
       nAlcobas: n,
@@ -75,13 +118,14 @@
       // mirar esta bandera primero: si no, la estima de un paso temprano puede
       // activar una regla pensada para la respuesta real y mover el plano sin
       // que el usuario haya contestado nada nuevo.
-      nAlcobasResuelto: contestadas >= ETAPAS.alcobas && !!answers.habitaciones,
+      nAlcobasResuelto: contestadas >= etapas.alcobas && !!answers.habitaciones,
       // Una alcoba: un solo bano, privado. Dos o mas: social + principal.
       nBanos: n >= 2 ? 2 : 1,
       // El ambiente flexible es estudio para los mas jovenes y sala de estar
       // para el resto. Misma area, distinto nombre y mobiliario.
       esJoven: Number(answers.edad || 35) < 35,
       personas: personasACargo(answers),
+      nivel: nivelIngresos(answers),
       extrasSala: EXTRAS_SALA[nivelIngresos(answers)] || [],
       // El espejado de la planta se siembra con el nombre para que dos personas
       // distintas no vean exactamente el mismo apartamento. Determinista: no

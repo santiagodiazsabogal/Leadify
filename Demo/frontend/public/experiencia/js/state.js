@@ -5,35 +5,42 @@
 
   function createInitial() {
     return {
-      // escarapela | quiz | result | confirmacion
+      // splash | escarapela | quiz | result | confirmacion
       // 'result' es la pantalla de SELECCIÓN de proyectos (ya sin la casa) y
       // 'confirmacion' es el cierre. Se conserva el nombre 'result' para no
       // renombrar acciones/CSS que ya funcionan.
       //
-      // YA NO HAY 'splash'. Era la casita ilustrada con "Encuentra tu próximo
-      // hogar" y un botón para empezar, y se fue con la landing que envolvía a
-      // este quiz: ahí ya era una segunda puerta —por eso `?embed=1` la
-      // saltaba— y ahora que la experiencia ES la página entera, es la única
-      // puerta y sobra igual. Se entra directo a la escarapela.
+      // Ya no hay 'landing': esa era la portada clonada de Colsubsidio y se
+      // borró con el resto. La app entra directa al splash.
       //
-      // LA ESCARAPELA NO SE SALTA, aunque también sea una puerta: es donde se
-      // piden nombre y teléfono, y sin ella la confirmación cierra con un lead
-      // sin contacto y nada lo delata.
-      //
-      // Tampoco hay 'landing': esa era la portada clonada de Colsubsidio.
-      screen: 'escarapela',
+      // EMBEBIDA (`?embed=1`, ver index.html) entra una pantalla más adentro,
+      // en la escarapela: quien llega ya pulsó "¡Empezar mi match!" y el
+      // splash sería una segunda puerta. No se salta también la escarapela
+      // porque es donde se piden nombre y teléfono; sin ella la confirmación
+      // cierra con un lead sin contacto y nada lo delata.
+      screen: window.GDF_EMBED ? 'escarapela' : 'splash',
       // Sin pantalla de elegir personaje: 'x' (avatar neutro) por defecto.
       gender: 'x', // 'f' | 'm' | 'x'
       nombre: '',
       apellido: '',
       correo: '',
       telefono: '',
-      // La cedula es la llave con la que se reconoce a alguien que vuelve. No
-      // hay login: se pide junto con el telefono, y solo si los DOS coinciden
-      // se devuelven sus resultados anteriores (ver js/datos.js).
-      cedula: '',
       afiliado: null,
+      // id de la fila en `consultas` que guardó guardar_consulta() (ver
+      // js/datos.js). Solo sirve para pasarlo a marcar_interes(); vacío
+      // (Supabase sin configurar, o si falló al guardar) no bloquea nada.
+      consultaId: null,
       consent: false,
+      // Cuándo marcó la casilla del registro: va con la autorización que se guarda (js/datos.js).
+      consentEn: null,
+      // Hoja "Antes de llamarte" abierta (templates.js, permisoLlamada): { id, aceptado }.
+      permiso: null,
+      // Lo que autorizó en esa hoja, para la llamada (js/llamada.js): { version, texto } o null.
+      autorizaCompartir: null,
+      // Campos del registro que la persona ya dejó (blur): solo esos muestran
+      // su error. Vive en el estado para que el error no se borre cuando un
+      // clic (el consentimiento) repinta la pantalla.
+      tocados: {},
       qi: 0,
       answers: {},
       // El barrio elegido en la pregunta de ubicacion. Vive FUERA de `answers`
@@ -51,6 +58,25 @@
       zonaSectores: [],
       matches: [],
       lead: null, // resultado de computeLeadQualification
+
+      // Resultado de GET /api/arriendo (ver js/arriendo.js). Independiente
+      // de `reco`: Arriendo no pasa por el modelo de compra, y mezclar los
+      // dos shapes en un solo campo obligaría a los dos lados a entender el
+      // contrato del otro para nada.
+      arriendo: {
+        estado: 'idle', // idle | cargando | listo | error
+        items: [],
+        error: null,
+      },
+      // Visor de fotos a pantalla completa (ver `visorFotos` en templates.js).
+      // null = cerrado. Guarda la lista entera y en cuál va, para que las
+      // flechas y el teclado puedan moverse sin volver a buscar el inmueble.
+      visor: null, // | { id, nombre, fotos: [url], i }
+      // Mismo rol que `recoPagina`, para la grilla de tarjetas de Arriendo
+      // (ver `arriendoLista` en templates.js) -- un campo aparte porque
+      // `reco`/`recoPagina` son de Compra y pueden tener su propia página
+      // activa al mismo tiempo (aunque hoy nunca conviven en pantalla).
+      arriendoPagina: 0,
       // Selección ÚNICA: guarda el `id` del view-model elegido (id_proyecto si
       // vino del backend). El contrato manda un solo `proyecto_elegido`, así
       // que marcar uno desmarca el anterior.
@@ -114,12 +140,90 @@
     };
   }
 
-  // Ya no hay preguntas condicionales: al ser la demo solo de Bogotá se quitó
-  // la de municipio, y con ella el "pregunta la zona solo si eligió Bogotá".
-  // La función se conserva porque el resto del flujo (avance, atrás, contador)
-  // razona sobre esta lista.
-  function qListFor() {
-    return window.GDF.data.QUESTIONS;
+  // SÍ hay una pregunta condicional, y es la única: 'operacion' (Compra vs.
+  // Arriendo, primera del recorrido) decide cuál de los dos arrays completos
+  // devolver. No es un filtro parcial sobre QUESTIONS -- son dos recorridos
+  // enteros distintos (ver QUESTIONS_COMPRA/QUESTIONS_ARRIENDO en data.js).
+  // Antes de contestar 'operacion' (answers.operacion aún undefined) se
+  // asume Compra, que es el recorrido de siempre.
+  // Oficinas y Bodegas no tienen ni habitaciones ni "estilo de vida": son
+  // las mismas preguntas de Vivienda (ver PREFERENCIAS_ARRIENDO/ESTILO_VIDA
+  // en data.js) pensadas para una persona, no para un inmueble comercial.
+  // Por eso ese recorrido se corta ahí, pero SÍ conserva 'zona' (el mapa de
+  // localidades) -- es el mismo objeto de pregunta que usa Compra/Vivienda,
+  // en la misma posición (QUESTIONS_ARRIENDO[2]), así que entra tal cual.
+  // Elegir una zona ahí es lo que le da a `/api/arriendo` un `localidad` con
+  // el que ordenar los resultados por cercanía (ver `arriendo.js` y el
+  // endpoint en backend/api/app.py) -- sin zona, se listan sin ordenar por
+  // cercanía. Después de 'zona' salta directo a 'result'.
+  var TIPOS_PROPIEDAD_SIN_PREGUNTAS = { Oficinas: true, Bodegas: true };
+
+  function qListFor(answers) {
+    var d = window.GDF.data;
+    if (answers && answers.operacion === 'arriendo') {
+      if (answers.tipo_propiedad && TIPOS_PROPIEDAD_SIN_PREGUNTAS[answers.tipo_propiedad]) {
+        // OPERACION, TIPO_PROPIEDAD, ZONA
+        return d.QUESTIONS_ARRIENDO.slice(0, 3);
+      }
+      return d.QUESTIONS_ARRIENDO;
+    }
+    return d.QUESTIONS_COMPRA || d.QUESTIONS;
+  }
+
+  /**
+   * Tramo final compartido por CUALQUIER forma de contestar una pregunta del
+   * quiz: decide si sigue una pregunta más o si se cierra a 'result', y
+   * reajusta el plano. `selectOption` (la respuesta genérica) y las dos
+   * acciones de Arriendo que escriben más de una clave de `answers` a la vez
+   * (`answerPreferencias`, `answerEstiloVida`) terminan aquí por igual.
+   *
+   * `calificar` es opcional: Arriendo lo omite porque nunca pasa por
+   * matching.js (el motor y el catálogo son 100% de compra) -- ver
+   * docs/... o el plan de esta entrega.
+   */
+  function avanzarQuiz(state, nextAnswers, calificar) {
+    var list = qListFor(nextAnswers);
+    var ni = state.qi + 1;
+    state.answers = nextAnswers;
+    if (ni >= list.length) {
+      // Terminó el quiz -> pantalla de selección de proyectos, en estado
+      // 'cargando'. Las recomendaciones ya NO se calculan aquí: las pide
+      // main.js al backend (paso 1 del contrato). Ver js/recommender.js.
+      state.screen = 'result';
+      state.reco = {
+        estado: 'cargando', leadId: null, items: [], totalCatalogo: null,
+        origenCatalogo: null, error: null, aproximado: false,
+      };
+      state.chosen = null;
+      if (calificar) {
+        // La calificación del lead SÍ se calcula ya: es lógica de negocio y
+        // no debe depender de una llamada de red. Se apoya en el motor local
+        // solo para saber qué tan bien calza el mejor proyecto disponible.
+        var mejores = window.GDF.matching.computeMatches(nextAnswers, 1);
+        state.lead = window.GDF.qualification.computeLeadQualification(
+          nextAnswers,
+          mejores[0] ? mejores[0].score : 0
+        );
+      } else {
+        state.lead = null;
+      }
+    } else {
+      state.qi = ni;
+    }
+    // El plano se reajusta con CADA respuesta, no solo con la de alcobas:
+    // es lo que hace que la escena reaccione a todo lo que se contesta.
+    //
+    // El cambio es barato de ver porque todas las plantas del sorteo son
+    // rectangulares y se trocean igual (12 celdas, c0..c11): las piezas ya
+    // puestas no mueren, se reacomodan y cambian de imagen.
+    //
+    // Se mide cuantas piezas habia ANTES de cambiar para pasarselas como
+    // suelo al plano nuevo; si no, cambiar de plano podia restar piezas.
+    ajustarPlanta(
+      state,
+      list.filter(function (x) { return nextAnswers[x.id] !== undefined; }).length,
+      window.GDF.scene.celdasVisibles(state.answers, list, state.planta)
+    );
   }
 
   function computeDerived(state) {
@@ -160,9 +264,33 @@
 
     var a = state.answers;
     var perfilChips = [];
-    if (a.tipo) perfilChips.push({ text: a.tipo, hi: true });
-    if (a.ingresos) perfilChips.push({ text: a.ingresos, hi: false });
-    if (a.habitaciones) perfilChips.push({ text: a.habitaciones + ' hab', hi: false });
+    // Cómo se lee una respuesta en el resumen: el `chip` de la opción en
+    // data.js ("Mudanza en 1 mes"), no el valor que viaja al backend ("1_mes").
+    function chipDe(id, v) {
+      var preg = qList.filter(function (x) { return x.id === id; })[0];
+      var op = preg && (preg.options || []).filter(function (o) { return o.v === v; })[0];
+      return (op && op.chip) || v;
+    }
+    function cuenta(n, uno, varios) {
+      return n + ' ' + (Number(n) === 1 ? uno : varios);
+    }
+    // Arriendo: además de 'ingresos' y 'zona(s)' (ya cubiertos abajo, mismas
+    // claves que Compra), sus propias preguntas.
+    if (a.operacion === 'arriendo') {
+      if (a.tipo_propiedad) perfilChips.push({ text: chipDe('tipo_propiedad', a.tipo_propiedad), hi: true });
+      if (a.presupuesto) perfilChips.push({ text: chipDe('presupuesto', a.presupuesto), hi: false });
+      if (a.mudanza) perfilChips.push({ text: chipDe('mudanza', a.mudanza), hi: false });
+      if (a.preferencias) {
+        var p = a.preferencias;
+        var partes = [cuenta(p.habitaciones, 'habitación', 'habitaciones'), cuenta(p.banos, 'baño', 'baños')];
+        if (Number(p.parqueaderos) > 0) partes.push(cuenta(p.parqueaderos, 'parqueadero', 'parqueaderos'));
+        if (p.estrato) partes.push('Estrato ' + p.estrato);
+        perfilChips.push({ text: partes.join(' · '), hi: false });
+      }
+    }
+    if (a.tipo) perfilChips.push({ text: chipDe('tipo', a.tipo), hi: true });
+    if (a.ingresos) perfilChips.push({ text: chipDe('ingresos', a.ingresos), hi: false });
+    if (a.habitaciones && a.operacion !== 'arriendo') perfilChips.push({ text: chipDe('habitaciones', a.habitaciones), hi: false });
     // UN CHIP POR ZONA, no solo la primera. `a.zona` es unicamente la inicial;
     // en el mapa se pueden marcar varios sectores y el resumen mostraba una
     // sola, dando a entender que se recomendo sobre ella nada mas. No es asi:
@@ -176,7 +304,7 @@
     if (zonasChip.length > 3) {
       perfilChips.push({ text: '+' + (zonasChip.length - 3) + ' zonas', hi: false });
     }
-    if (a.afiliado === 'Sí') perfilChips.push({ text: 'Afiliado ✓', hi: true });
+    if (a.afiliado === 'Sí') perfilChips.push({ text: 'Afiliado', hi: true });
 
     return {
       qList: qList,
@@ -238,11 +366,15 @@
 
   function applyAction(state, action, ds) {
     switch (action) {
-      // AQUI VIVIA 'goSplash'. Se borro con la pantalla a la que llevaba (ver
-      // createInitial): una accion que apunta a una pantalla que ya no existe
-      // no se ve rota, se ve como una bienvenida que aparece a destiempo.
-      // Cualquier accion desconocida cae en el `default` de mas abajo, que
-      // devuelve false y no toca el estado.
+      case 'goSplash':
+        // El splash NO EXISTE en la version embebida: el modal entra directo a
+        // la escarapela. Se bloquea aqui ademas de esconder el boton que lleva
+        // a el (ver escarapela en templates.js), porque esta accion la puede
+        // despachar cualquier otro camino y el fallo no se veria roto — se
+        // veria como una pantalla de bienvenida que aparece a destiempo.
+        if (window.GDF_EMBED) return false;
+        state.screen = 'splash';
+        break;
 
       case 'goEscarapela':
         state.screen = 'escarapela';
@@ -254,20 +386,13 @@
 
       case 'toggleConsent':
         state.consent = !state.consent;
+        state.consentEn = state.consent ? new Date().toISOString() : null;
         break;
 
       case 'startQuiz': {
-        var isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.correo.trim());
-        var canStart = !!(
-          state.nombre.trim() &&
-          state.apellido.trim() &&
-          state.correo.trim() &&
-          isValidEmail &&
-          state.telefono.trim() &&
-          state.cedula.trim() &&
-          state.consent
-        );
-        if (!canStart) return false;
+        // La cédula ya no se pide (decisión de Diego, 2026-10-04): la persona
+        // se identifica con su teléfono y su correo.
+        if (!validarRegistro(state).ok) return false;
         state.answers = { afiliado: state.afiliado };
         state.qi = 0;
         state.screen = 'quiz';
@@ -279,74 +404,48 @@
         break;
       }
 
-      /* Alguien que YA paso por aqui y vuelve: se le devuelven sus resultados
-         sin volver a preguntarle nada (ver js/datos.js y el intercepto de
-         'startQuiz' en main.js). `ds.respuestas` son las respuestas que dio
-         aquella vez.
-
-         Aqui NO se pinta la lista: eso lo hace 'recoResuelta' justo despues,
-         con los resultados guardados tal cual se guardaron. Reusarla es lo que
-         garantiza que la pantalla restaurada sea identica a la original — si
-         se armara aparte, serian dos caminos que pueden divergir. */
-      case 'restaurarConsulta': {
-        state.answers = ds.respuestas || {};
-        state.qi = 0;
-        state.screen = 'result';
-        state.chosen = null;
-        // La calificacion del lead se recalcula, no se guarda: depende de las
-        // respuestas, que si estan guardadas, y asi un cambio en las reglas de
-        // negocio aplica tambien a quien vuelve.
-        var mejorGuardado = window.GDF.matching.computeMatches(state.answers, 1);
-        state.lead = window.GDF.qualification.computeLeadQualification(
-          state.answers,
-          mejorGuardado[0] ? mejorGuardado[0].score : 0
-        );
-        break;
-      }
-
       case 'selectOption': {
         var qid = ds.qid;
         var value = ds.value;
         var nextAnswers = Object.assign({}, state.answers);
         nextAnswers[qid] = value;
-        var list = qListFor(nextAnswers);
-        var ni = state.qi + 1;
-        state.answers = nextAnswers;
-        if (ni >= list.length) {
-          // Terminó el quiz -> pantalla de selección de proyectos, en estado
-          // 'cargando'. Las recomendaciones ya NO se calculan aquí: las pide
-          // main.js al backend (paso 1 del contrato). Ver js/recommender.js.
-          state.screen = 'result';
-          state.reco = {
-            estado: 'cargando', leadId: null, items: [], totalCatalogo: null,
-            origenCatalogo: null, error: null, aproximado: false,
-          };
-          state.chosen = null;
-          // La calificación del lead SÍ se calcula ya: es lógica de negocio y
-          // no debe depender de una llamada de red. Se apoya en el motor local
-          // solo para saber qué tan bien calza el mejor proyecto disponible.
-          var mejores = window.GDF.matching.computeMatches(nextAnswers, 1);
-          state.lead = window.GDF.qualification.computeLeadQualification(
-            nextAnswers,
-            mejores[0] ? mejores[0].score : 0
-          );
-        } else {
-          state.qi = ni;
-        }
-        // El plano se reajusta con CADA respuesta, no solo con la de alcobas:
-        // es lo que hace que la escena reaccione a todo lo que se contesta.
-        //
-        // El cambio es barato de ver porque todas las plantas del sorteo son
-        // rectangulares y se trocean igual (12 celdas, c0..c11): las piezas ya
-        // puestas no mueren, se reacomodan y cambian de imagen.
-        //
-        // Se mide cuantas piezas habia ANTES de cambiar para pasarselas como
-        // suelo al plano nuevo; si no, cambiar de plano podia restar piezas.
-        ajustarPlanta(
-          state,
-          list.filter(function (x) { return nextAnswers[x.id] !== undefined; }).length,
-          window.GDF.scene.celdasVisibles(state.answers, list, state.planta)
-        );
+        // Calificar el lead (matching.js) solo tiene sentido en Compra: el
+        // motor y el catálogo son 100% de compra (VIS, crédito, subsidio) y
+        // Arriendo nunca termina el quiz por esta acción de todos modos (su
+        // última pregunta usa 'answerEstiloVida', más abajo) -- pero
+        // `nextAnswers.operacion` ya decide bien igual si algo cambiara.
+        avanzarQuiz(state, nextAnswers, nextAnswers.operacion !== 'arriendo');
+        break;
+      }
+
+      // Arriendo: el bloque de 4 contadores (Habitaciones/Baños/Parqueaderos/
+      // Estrato) de una sola pregunta (ver data.js, id 'habitaciones' con
+      // type:'contador'). Escribe DOS claves: el detalle completo, y un
+      // valor compatible en 'habitaciones' para que plano3d/perfil.js
+      // reaccione exactamente como en Compra (ver ETAPAS ahí).
+      case 'answerPreferencias': {
+        var prefs = ds.value || {};
+        var nextAnswersP = Object.assign({}, state.answers);
+        nextAnswersP.preferencias = prefs;
+        nextAnswersP[ds.qid] = prefs.habitaciones >= 3 ? '3+' : String(prefs.habitaciones || 1);
+        avanzarQuiz(state, nextAnswersP, false);
+        break;
+      }
+
+      // Arriendo: estilo de vida, selección múltiple con mínimo 3 (ver
+      // data.js). Reusa el id 'entorno_deseado' -- pero el VALOR real
+      // (answers.estilo_vida) y el que entiende plano3d/entorno.js
+      // (answers.entorno_deseado, solo el subconjunto con amenidad
+      // equivalente) son distintos, así que necesita su propia acción.
+      case 'answerEstiloVida': {
+        var elegidos = ds.value || [];
+        var mapaAmenidad = (window.GDF.data && window.GDF.data.ESTILO_A_AMENIDAD) || {};
+        var mapeados = elegidos.filter(function (v) { return mapaAmenidad[v]; })
+          .map(function (v) { return mapaAmenidad[v]; });
+        var nextAnswersE = Object.assign({}, state.answers);
+        nextAnswersE.estilo_vida = elegidos;
+        nextAnswersE[ds.qid] = mapeados;
+        avanzarQuiz(state, nextAnswersE, false);
         break;
       }
 
@@ -371,6 +470,24 @@
       case 'recoCargando':
         state.reco.estado = 'cargando';
         state.reco.error = null;
+        break;
+
+      // GET /api/arriendo (ver js/arriendo.js y cargarArriendo() en main.js).
+      // Mismo patrón que 'recoCargando'/'recoResuelta', en su propio campo.
+      case 'arriendoCargando':
+        state.arriendo = { estado: 'cargando', items: [], error: null };
+        // Una búsqueda nueva vuelve a la página 1 -- si no, un segundo
+        // intento con menos resultados podía dejar la vista en una página
+        // que ya no existe.
+        state.arriendoPagina = 0;
+        break;
+
+      case 'arriendoResuelta':
+        state.arriendo = {
+          estado: ds.estado,
+          items: ds.items || [],
+          error: ds.error || null,
+        };
         break;
 
       // Paso 2: resultado de POST /api/llamar (ver js/llamada.js). `ds` es
@@ -420,6 +537,11 @@
         }
         var qList = qListFor(state.answers);
         var prev = qList[state.qi - 1];
+        // Lo que se había elegido, SOLO para pintarlo marcado al volver (ver
+        // quizPanel en templates.js). La respuesta sí se deshace —el 3D y el
+        // matching retroceden con ella—; esto es memoria visual, nada lo lee
+        // para calcular.
+        state.respuestaPrevia = { qid: prev.id, v: state.answers[prev.id] };
         var nextAnswers2 = Object.assign({}, state.answers);
         delete nextAnswers2[prev.id];
         state.qi = state.qi - 1;
@@ -451,10 +573,41 @@
       // Tocar "Llamar" en una tarjeta ES elegir el proyecto: el contrato manda
       // un solo `proyecto_elegido`, y aquí queda fijado en el mismo gesto que
       // lleva al cierre. Ya no hay un paso previo de marcar la tarjeta.
-      case 'llamarProyecto':
+      case 'llamarProyecto': {
         if (!ds.value) return false;
+        // Si el proyecto es de otra empresa, antes de llamar se pide permiso para compartirle los datos
+        // (hoja "Antes de llamarte", js/consentimiento.js). Sin dueño conocido se llama como siempre.
+        var C = window.GDF.consentimiento;
+        if (C && C.requierePermiso(C.duenoDeElegido(state, ds.value))) {
+          state.permiso = { id: ds.value, aceptado: false };
+          break;
+        }
         state.chosen = ds.value;
+        state.autorizaCompartir = null;
         state.screen = 'confirmacion';
+        break;
+      }
+
+      case 'togglePermiso':
+        if (!state.permiso) return false;
+        state.permiso.aceptado = !state.permiso.aceptado;
+        break;
+
+      // La llamada sale solo con la casilla marcada: el botón sin marcar no hace nada.
+      case 'confirmarPermiso': {
+        if (!state.permiso || !state.permiso.aceptado) return false;
+        var Cp = window.GDF.consentimiento;
+        var aut = Cp.compartir(Cp.duenoDeElegido(state, state.permiso.id));
+        state.chosen = state.permiso.id;
+        state.autorizaCompartir = { version: aut.version, texto: aut.texto };
+        state.permiso = null;
+        state.screen = 'confirmacion';
+        break;
+      }
+
+      case 'cancelarPermiso':
+        if (!state.permiso) return false;
+        state.permiso = null;
         break;
 
       // Las 3 acciones del desplegable de planos solo guardan la preferencia:
@@ -487,15 +640,60 @@
         break;
       }
 
+      // --- Visor de fotos de Arriendo -----------------------------------
+      case 'abrirVisor': {
+        var inmVisor = (state.arriendo.items || []).filter(function (r) {
+          return String(r.id_inmueble) === String(ds.inmueble);
+        })[0];
+        var fotos = (inmVisor && inmVisor.imagenes) || [];
+        if (!fotos.length) return false;
+        var desde = parseInt(ds.idx, 10) || 0;
+        state.visor = {
+          id: String(ds.inmueble),
+          nombre: inmVisor.nombre || '',
+          fotos: fotos,
+          i: Math.min(Math.max(desde, 0), fotos.length - 1),
+        };
+        break;
+      }
+
+      case 'cerrarVisor':
+        if (!state.visor) return false;
+        state.visor = null;
+        break;
+
+      case 'visorMover': {
+        if (!state.visor) return false;
+        // Circular: desde la última se vuelve a la primera. Con 20 fotos,
+        // toparse con una flecha muerta se siente como que algo falló.
+        var total = state.visor.fotos.length;
+        var paso = parseInt(ds.paso, 10) || 1;
+        state.visor.i = (state.visor.i + paso + total) % total;
+        break;
+      }
+
+      // Mismo patrón que 'irAPagina', para la grilla de Arriendo
+      // (`state.arriendo.items` en vez de `state.reco.items`).
+      case 'irAPaginaArriendo': {
+        var porPagA = window.GDF.recommender.POR_PAGINA || 6;
+        var cuantasA = Math.max(1, Math.ceil(((state.arriendo.items || []).length) / porPagA));
+        var destinoA = Number(ds && ds.pagina);
+        if (isNaN(destinoA)) return false;
+        destinoA = Math.min(Math.max(destinoA, 0), cuantasA - 1);
+        if (destinoA === state.arriendoPagina) return false;
+        state.arriendoPagina = destinoA;
+        break;
+      }
+
       case 'restart': {
         var fresh = createInitial();
         Object.keys(fresh).forEach(function (k) {
           state[k] = fresh[k];
         });
-        // "Empezar de nuevo" vuelve a la entrada, y cual es la entrada lo
-        // decide `createInitial()` — hoy la escarapela. Aqui NO se fija a
-        // mano: el nombre de la pantalla escrito en dos sitios es lo que deja
-        // un 'splash' colgado cuando la entrada cambia.
+        // "Empezar de nuevo" vuelve a la entrada. Cual es la entrada ya lo
+        // decide `createInitial()` —splash suelta, escarapela embebida— asi
+        // que aqui NO se fija a mano: escribir 'splash' devolvia al modal la
+        // pantalla de bienvenida que precisamente se salta al abrirlo.
         state.screen = fresh.screen;
         break;
       }
@@ -506,10 +704,49 @@
     return true;
   }
 
+  /**
+   * EL ÚNICO criterio del registro. Lo usan la plantilla, la validación en
+   * vivo de main.js y 'startQuiz'; antes eran cuatro copias de la misma
+   * condición. Devuelve cada campo por separado (para pintar su error) y `ok`.
+   *
+   * Leadify (T4b) exige formato: nombre y apellidos de 2 letras o más, correo
+   * con dominio (nombre@dominio.com) y un celular de 10 dígitos. Las
+   * constructoras siguen con la regla de siempre (campos no vacíos y correo
+   * con @ y punto), para no cambiarles el comportamiento.
+   */
+  function validarRegistro(state) {
+    var estricto = (window.GDF_MARCA || {}).slug === 'leadify';
+    var nombre = state.nombre.trim();
+    var apellido = state.apellido.trim();
+    var correo = state.correo.trim();
+    var digitos = state.telefono.replace(/\D/g, '');
+    var v = estricto
+      ? {
+          nombre: nombre.length >= 2,
+          apellido: apellido.length >= 2,
+          correo: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo),
+          telefono: digitos.length === 10,
+        }
+      : {
+          nombre: !!nombre,
+          apellido: !!apellido,
+          correo: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo),
+          telefono: !!state.telefono.trim(),
+        };
+    v.consent = !!state.consent;
+    v.ok = v.nombre && v.apellido && v.correo && v.telefono && v.consent;
+    return v;
+  }
+
   window.GDF = window.GDF || {};
   window.GDF.state = {
+    validarRegistro: validarRegistro,
     createInitial: createInitial,
     computeDerived: computeDerived,
     applyAction: applyAction,
+    // Expuesto para findQuestionById() en main.js: necesita saber cuál
+    // recorrido está activo (Compra/Arriendo) para resolver la pregunta
+    // correcta por id -- ver el comentario de qListFor arriba.
+    qListFor: qListFor,
   };
 })();

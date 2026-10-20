@@ -4,26 +4,23 @@
 //
 // Se carga ANTES que js/leadify.js en index.html.
 window.GDF_CONFIG = {
-  // El servicio del modelo de recomendación (Leadify). Ver
-  // integracion/servicio_leadify.py: envuelve `recomendar()` en HTTP y además
-  // resuelve las fotos de cada proyecto por su `id_proyecto`.
+  // El servicio del modelo de recomendación: backend/api/app.py, YA
+  // desplegado en Render (ver render.yaml) y con CORS abierto a propósito.
+  // Expone /api/recomendar y agrega las fotos de cada proyecto (relativas a
+  // ESTE MISMO front, no al backend — ver el comentario de _fotos_de() en
+  // app.py y de urlDeFoto() en recommender.js).
   //
   // Si el modelo no está levantado, integracion/fake_leadify.py habla el mismo
   // contrato y recomienda sobre el MISMO catálogo real (los 96 proyectos de
   // Bogotá) con sus fotos. No es el modelo —son reglas— y lo dice en el campo
   // `motor` de cada respuesta, que sale por consola:
   //   python integracion/fake_leadify.py     -> escucha en el mismo puerto
-  //
-  // En localhost apunta al modelo corriendo en tu máquina (`uvicorn
-  // api.app:app --port 8100` desde Demo/backend); en cualquier otro host
-  // (Vercel) apunta al servicio desplegado en Render. Mismo patrón que
-  // DAPTA_LLAMADA_BASE de más abajo: son el MISMO backend (Demo/backend/api),
-  // así que las dos constantes resuelven igual — se dejan separadas porque
-  // cada una documenta un propósito distinto, no dos servicios distintos.
-  Leadify_BASE:
+  // En localhost apunta al backend de tu máquina (`uvicorn api.app:app --port 8100`
+  // desde Demo/backend); en cualquier otro host, al servicio de Render.
+  LEADIFY_BASE:
     location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-      ? 'http://localhost:8100'
-      : 'https://leadify-gmqj.onrender.com',
+      ? 'http://localhost:8100/api'
+      : 'https://leadify-gmqj.onrender.com/api',
 
   // De dónde salen los proyectos recomendados (ver js/recommender.js):
   //   'leadify' -> las 7 respuestas viajan al modelo, que devuelve el Top 6 con
@@ -37,24 +34,15 @@ window.GDF_CONFIG = {
   // las recomendaciones salen del motor local. Existe para la versión de UN
   // SOLO ARCHIVO (tools/empaquetar_demo.py), pensada para compartir por link:
   // ahí la política de seguridad del visor bloquea cualquier petición externa.
-  //
-  // El modelo YA está desplegado (leadify-gmqj.onrender.com), así que la
-  // publicada conecta con él de verdad. Si el servicio gratuito de Render
-  // está dormido, la primera visita del día puede tardar 30-60 segundos en
-  // responder mientras despierta — no es un error, es la condición del plan
-  // gratuito. El motor local de respaldo (RECOMMENDER 'local', ver
-  // js/recommender.js) sigue existiendo como red de seguridad si el servicio
-  // no responde en absoluto, no como modo por defecto.
+  // El plan gratuito de Render duerme el servicio tras un rato sin uso: la
+  // primera consulta del día puede tardar ~20 s en despertar (se ve como
+  // "Calculando tu match..." un rato largo, no como un error).
   SIN_BACKEND: false,
 
-  // El mismo backend de Leadify (Demo/backend/api/app.py) — apunta al mismo
-  // sitio que Leadify_BASE, en apariencia redundante, pero el flag
-  // SIN_BACKEND lo trata distinto: con SIN_BACKEND:true el cálculo de
-  // recomendaciones se apaga y cae al motor local, pero la llamada de Manuela
-  // SIGUE yendo al backend igual, porque necesita la API key de Dapta y esa
-  // nunca puede viajar al cliente. Antes de este flujo, este apuntaba a
-  // machea.onrender.com (otro proyecto, otra cuenta de Dapta); se consolidó
-  // aquí porque el flujo de Dapta ya se creó específicamente para Leadify.
+  // El mismo backend (Demo/backend/api/app.py) que LEADIFY_BASE, sin el /api.
+  // Va aparte porque SIN_BACKEND solo apaga el cálculo de recomendaciones, no
+  // la llamada de Manuela: esa necesita la API key de Dapta, que nunca puede
+  // viajar al navegador.
   DAPTA_LLAMADA_BASE:
     location.hostname === 'localhost' || location.hostname === '127.0.0.1'
       ? 'http://localhost:8100'
@@ -65,20 +53,22 @@ window.GDF_CONFIG = {
   // enlace abre WhatsApp con el mensaje listo y la persona elige el contacto.
   WHATSAPP_NUMERO: '',
 
-  // La base de datos (Postgres en Supabase). Ver js/datos.js.
-  //
-  // ESTA CLAVE VA AQUI A PROPOSITO Y NO ES UN DESCUIDO: es la clave
-  // *publicable*, pensada para viajar al navegador, y por si sola no abre
-  // nada. Las tablas estan cerradas y solo se exponen cuatro funciones del
-  // lado del servidor; la de lectura exige cedula Y telefono. Quien tenga esta
-  // clave puede llamar a esas cuatro funciones, nada mas -- no puede listar
-  // leads ni leer una fila sin conocer los dos datos de esa persona.
-  //
-  // La que NO puede aparecer nunca aqui es la `service_role`, que si salta
-  // todas las restricciones. Esa vive solo en el panel de Supabase.
-  //
-  // Vacias, la app funciona igual pero sin guardar nada (ver `activo()` en
-  // js/datos.js): la falta de un servicio opcional no es un fallo.
+  // Base de datos persistente de leads (ver js/datos.js y
+  // supabase/migrations/). SIEMPRE la clave PUBLICABLE/anon -- nunca la
+  // service_role -- porque viaja al navegador. Es segura de exponer: las
+  // tablas están cerradas (RLS sin políticas) y esta clave solo puede
+  // ejecutar las 4 funciones SECURITY DEFINER de la migración. Vacías, la
+  // app funciona igual: js/datos.js nunca bloquea el formulario si no hay
+  // configuración o si Supabase no responde.
+  // DATOS PERSONALES (design/login/REVISION_LEGAL.md y TEXTOS_AUTORIZACION_V2.md).
+  // Marcas con un acuerdo firmado: solo con ellas el formulario con su marca (?marca=) guarda datos y
+  // llama, con Leadify como encargado. Cualquier otra marca es SOLO una demostración: no guarda nada ni
+  // llama. El backend tiene la misma lista en MARCAS_CON_ACUERDO.
+  MARCAS_CON_ACUERDO: [],
+  // Compartir el lead con la constructora dueña del proyecto (hoja "Antes de llamarte"). Apagado hasta
+  // que haya empresas clientes con acuerdo: sin eso la hoja pediría permiso para compartir con empresas
+  // que nunca recibirían el lead (Ariel, mensaje 2).
+  COMPARTIR_CON_DUENOS: false,
   SUPABASE_URL: 'https://jovuwfqmxcxectjwmeqq.supabase.co',
-  SUPABASE_KEY: 'sb_publishable_LTtDM90Kub2pNI7pjr6iuA_U_dQQMAi',
+  SUPABASE_ANON_KEY: 'sb_publishable_LTtDM90Kub2pNI7pjr6iuA_U_dQQMAi',
 };

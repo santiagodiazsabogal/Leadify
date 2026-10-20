@@ -203,7 +203,83 @@
       h = Math.imul(h, 16777619);
     }
     h = Math.abs(h);
-    return { mx: !!(h & 1), mz: !!(h & 2), invSoc: !!(h & 4), invPri: !!(h & 8) };
+    return { mx: !!(h & 1), mz: !!(h & 2), invSoc: !!(h & 4), invPri: !!(h & 8), h: h };
+  }
+
+  /* Retranqueos. Una planta real casi nunca es un rectangulo: ductos, punto
+     fijo, balcones y linderos le muerden esquinas. Se recortan una o dos
+     esquinas de las caras laterales (banda social y la columna privada
+     exterior), o de ancho o de fondo, sobre el programa COMPLETO y antes del
+     espejado: asi la muesca queda fija desde la primera respuesta y nada se
+     mueve despues. Determinista por la semilla, como el espejado.
+     Solo se recorta si el ambiente sigue siendo habitable, y nunca la unica
+     pieza de su cara: recortarla entera solo angostaria el rectangulo. */
+  var MUESCA_MIN = 0.8, MUESCA_MAX = 1.5;
+
+  function anchoMin(r) {
+    if (r.id.indexOf('alcoba') === 0) return 2.4;
+    if (r.id.indexOf('bano') === 0) return 1.5;
+    if (r.zona === 'social') return 2.3;
+    return 2.0;
+  }
+
+  // Dos rectangulos que comparten un borde con tramo util (no solo una esquina).
+  function seTocan(a, b) {
+    var ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+    var oz = Math.min(a.z + a.d, b.z + b.d) - Math.max(a.z, b.z);
+    return (Math.abs(ox) < 0.02 && oz > 0.3) || (Math.abs(oz) < 0.02 && ox > 0.3);
+  }
+
+  function muescar(todos, h, x0, W, D) {
+    var cerca = function (a, b) { return Math.abs(a - b) < 0.02; };
+    var caras = [
+      { lado: 'o', toca: function (q) { return cerca(q.x, x0); } },
+      { lado: 'e', toca: function (q) { return cerca(q.x + q.w, x0 + W); } }
+    ];
+    var out = todos.map(function (r) {
+      return Object.assign({}, r, { rect: Object.assign({}, r.rect) });
+    });
+    // Recorta una esquina de `r` si queda habitable; true si lo hizo.
+    function recortar(r, cara, porFondo) {
+      var q = r.rect;
+      var orden = porFondo ? ['fondo', 'ancho'] : ['ancho', 'fondo'];
+      for (var i = 0; i < orden.length; i++) {
+        if (orden[i] === 'ancho') {
+          var mw = Math.min(MUESCA_MAX, Math.max(MUESCA_MIN, q.w * 0.32));
+          if (q.w - mw < anchoMin(r)) continue;
+          if (cara.lado === 'o') q.x += mw;
+          q.w -= mw;
+        } else {
+          var md = Math.min(MUESCA_MAX, Math.max(MUESCA_MIN, q.d * 0.3));
+          if (q.d - md < fondoMin(r) + 0.3) continue;
+          if (cerca(q.z, -D / 2)) q.z += md;
+          q.d -= md;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    /* Una o dos muescas, a lo sumo una por cara. Si la esquina que toca por
+       semilla no admite recorte (un VIS angosto), se prueban las demas y luego
+       la otra cara antes de dejar la planta rectangular. */
+    var cuantas = 1 + ((h >> 4) & 1);
+    var primera = (h >> 5) & 1;
+    var hechas = 0;
+    for (var k = 0; k < 2 && hechas < cuantas; k++) {
+      var cara = caras[(primera + k) % 2];
+      var enCara = out.filter(function (r) { return cara.toca(r.rect); });
+      if (enCara.length < 2) continue;
+      var esquinas = enCara.filter(function (r) {
+        return cerca(r.rect.z, -D / 2) || cerca(r.rect.z + r.rect.d, D / 2);
+      });
+      var bits = h >> (6 + k * 3);
+      for (var j = 0; j < esquinas.length; j++) {
+        var r = esquinas[(j + (bits & 1)) % esquinas.length];
+        if (recortar(r, cara, (bits >> 1) & 1)) { hechas++; break; }
+      }
+    }
+    return out;
   }
 
   function zonificar(perfil) {
@@ -219,7 +295,7 @@
       todos = apilarMin(full.soc, x0, dim.wS, D).concat(apilarMin(full.hum, xHum, dim.wH, D));
       return {
         pl: { w: W, d: D }, rects: todos, corredores: [], zonasAcceso: [],
-        corredor: null, dim: dim, completo: todos
+        corredor: null, dim: dim, completo: todos, huella: todos
       };
     }
 
@@ -273,6 +349,8 @@
       ];
     }
 
+    todos = muescar(todos, v.h, x0, W, D);
+
     /* El espejado conserva exactamente las adyacencias —el acceso no puede
        romperse— pero cambia por completo donde queda cada zona. */
     var espejo = function (r) {
@@ -310,6 +388,20 @@
       });
       corrs.forEach(function (c) {
         var q = c.rect;
+        /* El vestibulo entra ENTERO: es chico y es donde va la puerta de
+           entrada. Recortado contra la caja de lo construido, una muesca en la
+           esquina vecina lo dejaba en una tira de 27 cm que se descartaba, y
+           la entrada daba a un piso a medias. */
+        if (c.id === 'vestibulo') {
+          /* ...pero recien cuando existe el ambiente cerrado que lo une al
+             resto (el bano o la alcoba de su banda). Antes queda suelto,
+             colgado solo de la sala, con un hueco entre el y la cocina. */
+          var junto = rects.some(function (r) {
+            return r.zona !== 'social' && r.zona !== 'circulacion' && seTocan(r.rect, q);
+          });
+          if (junto) rects.push({ id: c.id, nombre: c.nombre, zona: c.zona, rect: Object.assign({}, q) });
+          return;
+        }
         var x0 = Math.max(q.x, hx0), x1 = Math.min(q.x + q.w, hx1);
         var z0 = Math.max(q.z, hz0), z1 = Math.min(q.z + q.d, hz1);
         if (x1 - x0 < 0.3 || z1 - z0 < 0.3) return;   // no queda tramo util
@@ -327,7 +419,11 @@
     return {
       pl: { w: W, d: D }, rects: rects, corredores: corrs, zonasAcceso: zonas,
       corredor: corrs.filter(function (c) { return c.id === 'corredor'; })[0] || null,
-      dim: dim, completo: todos
+      dim: dim, completo: todos,
+      // Planta completa, incluida la circulacion SIN recortar: es contra lo que
+      // `muros.js` decide que lado da a fachada. Con lo revelado solamente, un
+      // lado que da a un ambiente aun no construido levantaria cascara ahi.
+      huella: todos.concat(corredores)
     };
   }
 

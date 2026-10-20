@@ -202,20 +202,18 @@
       // el contrato en §1, y es de los errores que no dan mensaje claro: llega
       // como dato inválido, no como campo ausente.
       //
-      // VA COMO ENTERO, no como lista. Aquí decía que "el contrato admite las
-      // dos formas" y no es cierto: el contrato pide un entero 1..20, e
-      // `indice_localidad()` (Model/catalogos.py) acepta int, float o texto,
-      // nunca una lista — con `[7]` devuelve None y el modelo responde 400:
-      // "Localidad debe estar entre 1 y 20 (recibido: [7])".
-      //
-      // El fallo estuvo oculto porque SIN_BACKEND:true hace que las
-      // recomendaciones salgan del motor local sin llegar a tocar el modelo.
-      // Se descubrió al conectar el servicio de verdad.
-      //
-      // Si se eligen varias zonas se manda LA PRIMERA: el contrato admite una
-      // sola. Que el quiz permita elegir varias y el modelo solo entienda una
-      // es una diferencia de alcance a resolver en producto, no a callar aquí.
-      Localidad: localidadIds(a)[0] || null,
+      // UN SOLO ENTERO, no una lista: `FormularioUsuario.Localidad` en
+      // backend/api/app.py es `int` a secas, y `catalogos.py` solo tiene BFS
+      // de UN origen (`localidades_por_distancia`, no `ids_localidades` —eso
+      // nunca existió en el backend real). Mandar la lista de localidadIds()
+      // aquí daba 422 ("Input should be a valid integer") apenas se conectó
+      // el modelo de verdad: nunca se había probado contra el backend real
+      // porque SIN_BACKEND estuvo en true desde siempre. Se manda la
+      // PRIMERA zona elegida (`a.zona`, que ya vive fuera de `answers` con
+      // exactamente este propósito — ver zonaBarrio/zonaSectores en
+      // state.js); si algún día el modelo acepta varias, aquí es donde hay
+      // que volver a mandar la lista.
+      Localidad: localidadId(a && a.zona),
       numero_habitaciones: a.habitaciones === '3+' ? 3 : parseInt(a.habitaciones || '1', 10),
       piso: 4,
       zonas_comunes: zonasComunesDe(a),
@@ -233,7 +231,7 @@
   }
 
   function base() {
-    return (window.GDF_CONFIG && window.GDF_CONFIG.Leadify_BASE) || '';
+    return (window.GDF_CONFIG && window.GDF_CONFIG.LEADIFY_BASE) || '';
   }
 
   /**
@@ -258,11 +256,7 @@
    */
   function urlDeRecomendar() {
     var c = constructoraDelTenant();
-    // Todas las rutas del backend van bajo /api (ver api/app.py): sin el
-    // prefijo, el modelo desplegado responde 404 y la app cae al motor local
-    // en silencio, con el aviso de "orden aproximado" — nunca se ve como un
-    // error, solo como recomendaciones peores. Ya pasó una vez con Machea.
-    return base() + '/api/recomendar' + (c ? '?constructora=' + encodeURIComponent(c) : '');
+    return base() + '/recomendar' + (c ? '?constructora=' + encodeURIComponent(c) : '');
   }
 
   /**
@@ -279,8 +273,8 @@
     var url = base();
 
     if (!url) {
-      console.error('[GDF/leadify] Falta window.GDF_CONFIG.Leadify_BASE (ver js/config.js).', cuerpo);
-      cb({ estado: 'error', items: [], error: 'Leadify_BASE no configurado' });
+      console.error('[GDF/leadify] Falta window.GDF_CONFIG.LEADIFY_BASE (ver js/config.js).', cuerpo);
+      cb({ estado: 'error', items: [], error: 'LEADIFY_BASE no configurado' });
       return;
     }
 

@@ -48,7 +48,7 @@
   var ESTANDAR = { primario: '#ff7a18', acento: '#ff9d3f', tinta: '#33322f' };
 
   /**
-   * SUPERFICIE CLARA DE Leadify, y solo de Leadify.
+   * SUPERFICIE CLARA DE LEADIFY, y solo de Leadify.
    *
    * Todo lo demas en este archivo asume la consola en negro (`--fondo:
    * #0a0b0d` de styles.css) — es la identidad de las cuatro constructoras
@@ -70,70 +70,75 @@
    * misma manera: viene fija en derivar() como gris claro para consola
    * negra, así que se reemplaza aparte, a mano, con la escala de texto
    * oscuro que ya usa el resto del sitio de Leadify (--color-navy).
+   *
+   * DESDE EL REDISEÑO DEL FORMULARIO (2026-10) SALE DEL MANUAL DE MARCA
+   * (Leadify Motion Graphics Package v1.0): blanco y gris claro #F5F6F8, sin
+   * el beige ni el degradado rosado; navy #2D3B4E para el texto y línea
+   * #DCE1E7. La escala de tinta baja del navy con contraste medido sobre
+   * blanco: media 7,5:1 y suave 5,3:1 (4,9:1 sobre el gris #F5F6F8 de los
+   * estados hover y seleccionado; con #6B7684 ahí daba 4,3 y no cumplía); el gris
+   * #A7ADB5 del manual da 2,2:1 y por eso queda solo para la tenue
+   * (placeholders y deshabilitado), nunca para texto que haya que leer.
    */
-  var SUPERFICIE_Leadify = {
-    fondo: '#fdf6f0',
+  var SUPERFICIE_LEADIFY = {
+    fondo: '#ffffff',
     papel: '#ffffff',
-    papel2: '#f5efe9',
-    // El `border-navy/10` con el que la landing dibuja cada tarjeta. Era un
-    // gris cálido (#dedad8) y sobre el beige tiraba a sepia; el navy
-    // translúcido es el mismo tono del texto, más apagado, que es lo que
-    // hace que el borde desaparezca de la lectura en vez de competir.
-    borde: 'rgba(45, 59, 78, 0.12)',
+    papel2: '#f5f6f8',
+    borde: '#dce1e7',
     tinta: '#2d3b4e',
-    tintaMedia: '#676f7b',
-    tintaSuave: '#95999f',
-    tintaTenue: '#b6b6b9',
-    // El verde del badge de subsidio. El `:root` trae el aclarado para la
-    // consola negra (#4fd6bf); sobre blanco ese mismo verde da 2,5 de
-    // contraste, así que aquí va la versión oscura.
-    exito: '#0f6f64',
+    tintaMedia: '#4a5666',
+    tintaSuave: '#626d7b',
+    tintaTenue: '#a7adb5',
+    // El manual no tiene verde: lo que "está bien" se dice con navy y un
+    // check, y el rojo queda para la acción y el error.
+    exito: '#2d3b4e',
   };
 
   /**
-   * EL SISTEMA DE LA LANDING, y solo para Leadify.
+   * LA PALETA DE LEADIFY, FIJADA AQUI Y NO EN tenants/leadify/marca.js.
    *
-   * SUPERFICIE_Leadify aclaró el fondo; esto alinea lo que quedaba: la
-   * tipografía de los titulares y la geometría. Son los mismos valores que
-   * declara el `@theme` de frontend/src/index.css, escritos aquí a mano.
-   *
-   * SE DUPLICAN A PROPÓSITO, igual que la paleta de tenants/leadify/marca.js.
-   * Este bundle no compila con el proyecto de Vite —es estático, vive en
-   * public/ y se sirve tal cual— así que no hay forma de importar los tokens
-   * de Tailwind. Lo que sí hay es un sitio donde desincronizarse se ve solo:
-   * el quiz se abre DENTRO de la landing, en un iframe (ver LiveDemo.tsx), y
-   * las dos superficies quedan una al lado de la otra en la misma pantalla.
-   *
-   * LO QUE CAMBIA, Y POR QUÉ:
-   *   - SORA en los titulares. Era la única diferencia tipográfica que
-   *     quedaba con la landing; Manrope ya era el cuerpo en las dos.
-   *   - RADIOS MÁS GRANDES. La landing redondea a 24-32px lo que la consola
-   *     redondea a 12-16. Es lo que más separa las dos superficies a primera
-   *     vista, por encima del color.
-   *   - EL CTA EN PASTILLA Y EN CORAL. En la landing el botón de acción es
-   *     `rounded-full bg-coral`. El verde de aquí es el color de que algo
-   *     encaja —compatibilidad, match, llamada— y gastarlo en 'Continuar' le
-   *     quitaba ese significado justo donde hace falta, en los resultados.
-   *   - SOMBRAS CON OFFSET NEGATIVO. Las de la consola son sombras duras
-   *     pensadas para fondo negro; las de la landing (--shadow-soft,
-   *     --shadow-coral) se abren hacia afuera y tiñen de navy, no de negro.
+   * marca.js es GENERADO por plataforma/tools/generar_tenants.py, que no está
+   * en este repo: si se editara a mano, la próxima regeneración lo pisaría
+   * (y hoy trae el coral #FF6259 y el verde #2DD4A7 de antes del manual).
+   * Un solo acento, el rojo #FF6259, para el CTA, el progreso y los datos
+   * importantes; el navy es la tinta.
    */
-  var SISTEMA_Leadify = {
-    '--fuente-titulos': "'Sora', 'Poppins', sans-serif",
-    '--radio-campo': '16px',
-    '--radio-boton': '18px',
-    '--radio-cta': '999px',
-    '--radio-tarjeta': '24px',
-    '--radio-panel': '28px',
-    // El CTA toma el primario (coral), no el acento (verde).
-    '--cta-fondo': 'var(--marca)',
-    // --shadow-soft de index.css, literal.
-    '--sombra-tarjeta': '0 10px 40px -10px rgba(45, 59, 78, 0.1)',
-    // El desplegable FLOTA sobre el panel y tiene que despegarse más que una
-    // tarjeta apoyada: la misma familia, con más profundidad.
-    '--sombra-flotante': '0 18px 44px -14px rgba(45, 59, 78, 0.22)',
-    // --shadow-coral de index.css, literal.
-    '--sombra-cta': '0 14px 34px -12px rgba(255, 98, 89, 0.55)',
+  var PALETA_LEADIFY = { primario: '#ff6259', acento: '#ff6259', tinta: '#2d3b4e' };
+
+  /**
+   * Los tokens de Leadify que NO salen de la derivación.
+   *
+   * derivar() mezcla el primario con el fondo para los tintes y velos: con el
+   * rojo eso da rosados, que es justo el lavado que el manual quita. Aquí la
+   * superficie de chips, opciones y avisos es el gris claro, y el rojo muy
+   * suave #FFF0ED (el "fondo de icono" del manual) queda para lo poco que de
+   * verdad es de marca. Los bordes de marca pasan a la línea #DCE1E7.
+   *
+   * `--marca-texto`: el rojo del manual sobre blanco da 3,5:1, que no alcanza
+   * para texto pequeño; para letra roja se usa un rojo algo más hondo (4,8:1).
+   *
+   * Las variables de forma y de fuente las declara el `:root` de styles.css
+   * con los valores de las constructoras; Leadify las reescribe aquí.
+   */
+  var TOKENS_LEADIFY = {
+    '--marca-texto': '#d13a26',
+    '--marca-borde': '#dce1e7',
+    '--marca-borde-suave': '#dce1e7',
+    '--marca-tinte': '#f5f6f8',
+    '--marca-tinte-2': '#f5f6f8',
+    '--marca-velo-fuerte': '#fff0ed',
+    '--marca-velo': '#f5f6f8',
+    '--marca-velo-claro': '#f5f6f8',
+    '--acento-tinte': '#fff0ed',
+    '--acento-tinte-2': '#ffffff',
+    '--acento-velo': '#f5f6f8',
+    '--acento-oscuro': '#e03a28',
+    '--fuente-titulos': "'Inter', sans-serif",
+    '--fuente-cuerpo': "'Inter', sans-serif",
+    '--radio-tarjeta': '18px',
+    '--radio-interior': '14px',
+    '--radio-boton': '999px',
+    '--sombra-tarjeta': '0 12px 30px rgba(45, 59, 78, 0.08)',
   };
 
   function aRgb(hex) {
@@ -284,13 +289,32 @@
     return (hi + 0.05) / (lo + 0.05);
   }
 
+  /**
+   * El color de marca OSCURECIDO hasta que sirva de TEXTO sobre blanco (4,5:1).
+   * Un amarillo #fed141 como letra es ilegible; su versión honda sí se lee y
+   * sigue siendo "el amarillo de la marca".
+   */
+  function oscurecerParaTexto(hex) {
+    var c = hex;
+    for (var k = 0; k <= 0.85 && contraste(c, '#ffffff') < 4.5; k += 0.05) {
+      c = mezclar(hex, -k);
+    }
+    return c;
+  }
+
   function aplicar() {
     var M = window.GDF_MARCA || {};
     var esLeadify = M.slug === 'leadify';
     // Leadify es la propia marca del stand, no una constructora revendida:
-    // aqui el estandar naranja no aplica y manda la paleta de tenants/leadify.
+    // aqui el estandar naranja no aplica y manda la paleta del manual de
+    // Leadify, fijada arriba (PALETA_LEADIFY) y no leída de su marca.js.
     var usaEstandar = ESTANDAR && !esLeadify;
-    var paleta = usaEstandar ? {} : (M.paleta || {});
+    // "Pruébalo con tu marca" (js/demo.js): Leadify vestido con el color de otra
+    // empresa. Es UN solo acento, como en Leadify: el color principal de la marca.
+    var demo = esLeadify && M.demo && M.demo.primario ? M.demo : null;
+    var paleta = demo
+      ? { primario: demo.primario, acento: demo.primario, tinta: PALETA_LEADIFY.tinta }
+      : esLeadify ? PALETA_LEADIFY : usaEstandar ? {} : (M.paleta || {});
     var base = {
       primario: paleta.primario || (usaEstandar ? ESTANDAR.primario : BASE.primario),
       acento: paleta.acento || (usaEstandar ? ESTANDAR.acento : BASE.acento),
@@ -299,32 +323,24 @@
 
     var raiz = document.documentElement;
 
+    // LA MARCA ACTIVA COMO ATRIBUTO del <html>, para que el CSS pueda hablarle
+    // a una sola: `html[data-marca="leadify"] ...`. Los tokens alcanzan para
+    // el color, pero no para lo que cambia de FORMA (botón en pastilla,
+    // selección con borde navy), y sin esto la única manera de distinguir a
+    // Leadify en CSS era una clase que ponía el fondo animado de senal.js.
+    raiz.dataset.marca = M.slug || '';
+
     // La superficie clara de Leadify se fija AQUI, antes de derivar(): esa
     // función lee --fondo del DOM (vía haciaFondo/fondo()) para mezclar los
     // tintes y velos, así que tiene que ver el fondo nuevo, no el negro que
     // trae styles.css por defecto. Las cuatro constructoras no pasan por
     // aquí y se quedan con la consola negra de siempre.
-    // EL SLUG, EN EL <html>. Casi todo lo que distingue a una marca se puede
-    // decir con un token, y por eso esta línea no existía. Lo que no se puede
-    // son las decisiones tipográficas que no son un color ni una medida —una
-    // versalita, un interletrado— y que el sistema de la landing sí trae. Van
-    // en `[data-marca='leadify']` al final de styles.css, que es el único sitio
-    // del archivo donde una regla mira de qué marca se trata.
-    raiz.setAttribute('data-marca', M.slug || '');
-
     if (esLeadify) {
-      raiz.style.setProperty('--fondo', SUPERFICIE_Leadify.fondo);
-      raiz.style.setProperty('--papel', SUPERFICIE_Leadify.papel);
-      raiz.style.setProperty('--papel-2', SUPERFICIE_Leadify.papel2);
-      raiz.style.setProperty('--borde', SUPERFICIE_Leadify.borde);
+      raiz.style.setProperty('--fondo', SUPERFICIE_LEADIFY.fondo);
+      raiz.style.setProperty('--papel', SUPERFICIE_LEADIFY.papel);
+      raiz.style.setProperty('--papel-2', SUPERFICIE_LEADIFY.papel2);
+      raiz.style.setProperty('--borde', SUPERFICIE_LEADIFY.borde);
       raiz.style.colorScheme = 'light';
-      // La geometría y los titulares se fijan aquí, al lado de la superficie:
-      // no se derivan de ningún color, así que derivar() no tiene nada que
-      // decir sobre ellos. Las cuatro constructoras no pasan por aquí y se
-      // quedan con los valores de consola del `:root`.
-      Object.keys(SISTEMA_Leadify).forEach(function (k) {
-        raiz.style.setProperty(k, SISTEMA_Leadify[k]);
-      });
     } else {
       raiz.style.colorScheme = 'dark';
     }
@@ -337,11 +353,11 @@
     // de --color-navy, ANTES de que --texto-cta (más abajo) la use para
     // calcular contraste, o calcularía contra el gris claro equivocado.
     if (esLeadify) {
-      tokens['--tinta'] = SUPERFICIE_Leadify.tinta;
-      tokens['--tinta-media'] = SUPERFICIE_Leadify.tintaMedia;
-      tokens['--tinta-suave'] = SUPERFICIE_Leadify.tintaSuave;
-      tokens['--tinta-tenue'] = SUPERFICIE_Leadify.tintaTenue;
-      tokens['--exito'] = SUPERFICIE_Leadify.exito;
+      tokens['--tinta'] = SUPERFICIE_LEADIFY.tinta;
+      tokens['--tinta-media'] = SUPERFICIE_LEADIFY.tintaMedia;
+      tokens['--tinta-suave'] = SUPERFICIE_LEADIFY.tintaSuave;
+      tokens['--tinta-tenue'] = SUPERFICIE_LEADIFY.tintaTenue;
+      tokens['--exito'] = SUPERFICIE_LEADIFY.exito;
     }
 
     // Los tokens FIJADOS a mano por la marca ganan sobre los derivados. Es lo
@@ -360,37 +376,60 @@
     // caia en claro sobre claro. Se fija un oscuro de verdad.
     tokens['--sobre-marca'] = contraste(base.primario, '#ffffff') >= 4.5 ? '#ffffff' : '#1b1c1f';
 
-    // TEXTO DEL CTA PRINCIPAL.
+    // TEXTO DEL CTA PRINCIPAL, que va sobre el acento.
     //
-    // SE MIDE CONTRA EL FONDO QUE EL BOTON VA A TENER, no contra el acento a
-    // secas. Eran lo mismo mientras `--cta-fondo` valia `var(--acento)` para
-    // todos; desde que Leadify lo pone en coral, calcular contra el verde daria
-    // un color elegido para un fondo que ese boton no tiene. Es el tipo de
-    // desfase que no falla: solo deja un texto peor contrastado de lo que la
-    // cuenta creia.
-    var fondoCta = esLeadify ? base.primario : base.acento;
-
     // Se decide POR CONTRASTE y no por gusto. Colsubsidio pone ahi un gris
     // neutro, que funciona porque su amarillo es clarisimo; con el verde de
     // otra marca ese mismo gris queda ilegible. Se prueba el gris de la marca
-    // y, si no llega a 4.5:1, se cambia a blanco o al oscuro de la tinta — el
-    // que gane.
+    // y, si no llega a 4.5:1, se cambia a blanco o negro — el que gane.
     //
     // Para Colsubsidio el gris da 5.0:1 y se elige, o sea que el CTA conserva
-    // exactamente el color de hoy. Sobre el coral de Leadify el gris no llega,
-    // y entre los dos candidatos gana el navy (3,9:1 contra 2,9:1 del blanco).
-    // Es UNA DIFERENCIA DELIBERADA CON LA LANDING, que pone texto blanco sobre
-    // coral: ahi son 2,9:1, justo por debajo del 3,0 que pide AA para texto
-    // grande. El boton se lee mejor asi, y el navy es el color de texto del
-    // resto de la marca de todos modos.
+    // exactamente el color de hoy.
     var grisTexto = tokens['--tinta-media'];
-    if (contraste(grisTexto, fondoCta) >= 4.5) {
+    if (contraste(grisTexto, base.acento) >= 4.5) {
       tokens['--texto-cta'] = grisTexto;
     } else {
       tokens['--texto-cta'] =
-        contraste('#ffffff', fondoCta) >= contraste(tokens['--tinta'], fondoCta)
+        contraste('#ffffff', base.acento) >= contraste(tokens['--tinta'], base.acento)
           ? '#ffffff'
           : tokens['--tinta'];
+    }
+
+    // LEADIFY: SUS TOKENS FIJOS Y EL CTA EN BLANCO, por decisión de marca.
+    //
+    // Blanco sobre el rojo #FF6259 da 3,5:1: no llega al 4,5 de la regla de
+    // arriba, que elegiría el navy. Se fuerza el blanco (es como lo pide el
+    // manual) y la etiqueta del botón va a 19 px en negrita en styles.css,
+    // que es "texto grande" para WCAG AA (14 pt en negrita = 18,67 px) y ahí
+    // 3:1 basta. OJO: 18 px NO alcanza — se midió con axe en el QA previo de
+    // T12. Si el botón vuelve a letra más pequeña, este blanco deja de cumplir.
+    if (esLeadify) {
+      Object.keys(TOKENS_LEADIFY).forEach(function (k) {
+        tokens[k] = TOKENS_LEADIFY[k];
+      });
+      if (demo) {
+        // Los cuatro tokens fijos de arriba son ROJOS del manual de Leadify; en la
+        // demo se rehacen desde el color de la empresa. Y como una marca puede
+        // traer un amarillo o un verde claro, TODO texto sobre ese color se decide
+        // por contraste (WCAG 4,5:1), no por gusto.
+        var P = base.primario;
+        var oscuro = SUPERFICIE_LEADIFY.tinta;
+        // El que MÁS contraste dé, no «blanco si llega a 4,5, si no navy»: con un rojo
+        // intermedio (#e53935) el blanco da 4,2 y el navy 3,3, y esa regla elegía el peor.
+        var textoSobre = contraste(P, '#ffffff') >= contraste(P, oscuro) ? '#ffffff' : oscuro;
+        tokens['--marca-texto'] = oscurecerParaTexto(P);
+        tokens['--marca-velo-fuerte'] = mezclar(P, 0.9);
+        tokens['--acento-tinte'] = mezclar(P, 0.9);
+        tokens['--acento-oscuro'] = mezclar(P, -0.14);
+        tokens['--sobre-marca'] = textoSobre;
+        tokens['--sobre-acento'] = textoSobre;
+        tokens['--texto-cta'] = textoSobre;
+        raiz.dataset.demo = '1';
+      } else {
+        tokens['--sobre-marca'] = '#ffffff';
+        tokens['--sobre-acento'] = '#ffffff';
+        tokens['--texto-cta'] = '#ffffff';
+      }
     }
 
     Object.keys(tokens).forEach(function (k) {

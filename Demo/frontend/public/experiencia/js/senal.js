@@ -14,9 +14,9 @@
 // y esa continuidad es precisamente lo que dice §3 — el formulario es el
 // primer nodo de UN sistema, no una pantalla suelta.
 //
-// SOLO PARA Leadify. Las cuatro constructoras revendidas tienen su identidad
+// SOLO PARA LEADIFY. Las cuatro constructoras revendidas tienen su identidad
 // en negro y naranja y no se les impone la del stand; misma línea que sigue
-// `SUPERFICIE_Leadify` en tema.js.
+// `SUPERFICIE_LEADIFY` en tema.js.
 (function () {
   'use strict';
 
@@ -203,7 +203,17 @@
     else arrancar();
   }
 
+  // APAGADO desde el rediseño del formulario (2026-10). El manual de marca de
+  // Leadify pide fondo blanco o gris claro y mucho espacio negativo; la red de
+  // nodos y la atmósfera coral se leían como adorno, no como marca, y
+  // competían con el plano 3D. Se deja el módulo entero (y sus reglas
+  // `.gdf-con-senal` en styles.css, que sin la clase no aplican) para poder
+  // volver a encenderlo cambiando esta constante; pausar() y reanudar() ya
+  // no hacen nada si el lienzo no existe.
+  var ENCENDIDO = false;
+
   function montar() {
+    if (!ENCENDIDO) return;
     // Solo la marca del stand. Ver la nota de arriba.
     var marca = window.GDF_MARCA || {};
     if (marca.slug !== 'leadify') return;

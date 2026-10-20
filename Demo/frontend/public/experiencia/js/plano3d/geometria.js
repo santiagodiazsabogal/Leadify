@@ -37,10 +37,17 @@
 
     // Sobresale del grosor a proposito: al ras, la cara de la cortadora queda
     // coplanar con la del corte y deja artefactos.
-    var c = new Libs.Brush(new THREE.BoxGeometry(op.width * scale, alto, grosor * 2));
+    // Por lo mismo sobresale por abajo en las puertas, y por arriba en los
+    // vanos de altura completa. Al ras de la base del muro, el corte dejaba
+    // una lamina coplanar con el piso que peleaba con el en el umbral: el
+    // serrucho gris que se veia bajo la puerta de entrada.
+    var SOBRA = 0.1;
+    var abajo = op.type === 'door' ? SOBRA : 0;
+    var arriba = base + alto >= muro.height - 0.001 ? SOBRA : 0;
+    var c = new Libs.Brush(new THREE.BoxGeometry(op.width * scale, alto + abajo + arriba, grosor * 2));
     c.position.set(
       op.offset * largo - largo / 2,
-      base + alto / 2 - muro.height / 2,
+      base + (alto + arriba - abajo) / 2 - muro.height / 2,
       0
     );
     c.updateMatrixWorld();
@@ -166,25 +173,27 @@
   /* Caja alineada a los ejes de la vivienda construida: huella en XZ y Y desde
      el piso hasta el muro mas alto. */
   function cajaDelPlano(plan) {
-    /* Sin muros no hay caja, y hay que decirlo con numeros finitos: sobre una
-       lista vacia `Math.min.apply` devuelve Infinity y `Math.max` -Infinity, y
-       de ahi salen un centro NaN y un tamano -Infinity que acaban en las
-       posiciones de la geometria. No falla nada visible —three solo avisa de
-       que el radio es NaN al calcular la esfera envolvente— y por eso conviene
-       cortarlo aqui: el plano esta vacio mientras se contesta la pregunta de
-       ubicacion, que no construye nada (ver ETAPAS en perfil.js). */
-    if (!plan.walls.length) {
-      return { center: [0, 0, 0], halfExtents: [0, 0, 0] };
-    }
-
     var xs = [], zs = [];
     plan.walls.forEach(function (w) {
       xs.push(w.start[0] * plan.scale, w.end[0] * plan.scale);
       zs.push(w.start[1] * plan.scale, w.end[1] * plan.scale);
     });
-    var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
-    var minZ = Math.min.apply(null, zs), maxZ = Math.max.apply(null, zs);
-    var alto = Math.max.apply(null, plan.walls.map(function (w) { return w.height; }));
+
+    var minX, maxX, minZ, maxZ, alto;
+    if (xs.length) {
+      minX = Math.min.apply(null, xs); maxX = Math.max.apply(null, xs);
+      minZ = Math.min.apply(null, zs); maxZ = Math.max.apply(null, zs);
+      alto = Math.max.apply(null, plan.walls.map(function (w) { return w.height; }));
+    } else {
+      /* Sin muros todavia (nada respondido aun): la losa del lote debe verse
+         desde antes de la primera pregunta, no solo cuando aparece el primer
+         ambiente. `plan.meta.ancho/fondo` ya trae la huella completa del
+         programa (zonificar la calcula sin mirar el paso), asi que se usa esa
+         para encuadrar un lote plano en vez de devolver una caja vacia. */
+      var w2 = (plan.meta && plan.meta.ancho) || 6, d2 = (plan.meta && plan.meta.fondo) || 6;
+      minX = -w2 / 2; maxX = w2 / 2; minZ = -d2 / 2; maxZ = d2 / 2;
+      alto = 0.01;
+    }
 
     return {
       center: [(minX + maxX) / 2, alto / 2, (minZ + maxZ) / 2],

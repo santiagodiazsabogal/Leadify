@@ -94,41 +94,18 @@
 
   --texto-cta: #1b1c1f;
 
-  /* EL FONDO DEL CTA PRINCIPAL. Era `--acento` escrito en la regla, y eso
-     ataba el boton mas importante de la app al SEGUNDO color de la marca. Para
-     Colsubsidio y las otras tres esta bien —su acento es su color de accion—,
-     pero en Leadify el acento es el verde de "esto encaja" y el boton de
-     avanzar es coral, como en su landing. Es un token para poder decirlo. */
-  --cta-fondo: var(--acento);
-
-  /* ---- TIPOGRAFIA ----
-     Los titulares salen de un token porque cada marca trae la suya: Poppins
-     para las cuatro constructoras, Sora para Leadify (ver tema.js). Estaba
-     escrita a mano en 21 reglas, que es la version tipografica del problema
-     que los tokens de color vinieron a resolver. */
+  /* ---- TIPOGRAFIA Y FORMA ----
+     Las dos familias iban escritas a mano en cada regla, y asi no habia modo
+     de que una marca usara otra. Estos son los valores de las constructoras;
+     Leadify los reescribe desde js/tema.js con los de su manual (Inter, 18/14
+     px y botones en pastilla). Una regla nueva debe usar estas variables y no
+     el valor literal. */
   --fuente-titulos: 'Poppins', sans-serif;
   --fuente-cuerpo: 'Manrope', sans-serif;
-
-  /* ---- GEOMETRIA ----
-     CUATRO RADIOS Y TRES SOMBRAS, POR ROL. No es cosmetica: es lo que separa
-     una consola —esquinas cortas, sombras duras, todo pegado— de la landing de
-     Leadify, que es redonda y flota. Los valores de aqui son los de la consola,
-     o sea los de siempre; tema.js los sube para Leadify.
-
-     LO QUE NO PASA POR AQUI: `.pt-*` y `.gdf-hero-*`. El primero es el clon de
-     colsubsidio.com y el segundo sigue design/landing-hero-handoff/ al pixel;
-     los dos tienen que quedarse exactamente como estan (ver las tres notas del
-     encabezado de este archivo). Tampoco las pastillas (999px) ni los circulos
-     (50%), que no son una decision de marca sino una forma. */
-  --radio-campo: 12px;     /* inputs, desplegables, celdas, botones chicos */
-  --radio-boton: 14px;     /* los botones de opcion del quiz */
-  --radio-cta: 13px;       /* el boton primario */
-  --radio-tarjeta: 16px;   /* tarjetas de proyecto y bloques de resultado */
-  --radio-panel: 22px;     /* el bloque mas grande del cierre */
-
+  --radio-tarjeta: 16px;   /* tarjetas y paneles */
+  --radio-interior: 12px;  /* campos, opciones, cajas dentro de una tarjeta */
+  --radio-boton: 13px;     /* el boton principal */
   --sombra-tarjeta: 0 4px 16px rgba(0, 0, 0, 0.07);
-  --sombra-flotante: 0 10px 28px rgba(30, 34, 40, 0.14);
-  --sombra-cta: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 
 * {
@@ -476,7 +453,7 @@ textarea::placeholder { color: var(--tinta-tenue); }
      height:100vh de escritorio y .gdf-shell lo recorta con overflow:hidden en
      vez de dejar scrollear .gdf-portada-scroll. */
   min-height: 0;
-  font-family: var(--fuente-titulos);
+  font-family: 'Poppins', sans-serif;
   color: #333;
 }
 /* El scroll es INTERNO. En escritorio styles.css pone body{overflow:hidden} y
@@ -1571,7 +1548,7 @@ a.pt-flink:hover {
   flex: 0 0 auto;
   background: var(--papel);
   border: 1px solid var(--borde);
-  border-radius: var(--radio-tarjeta);
+  border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
   animation: swingCard 5s ease-in-out infinite;
@@ -1651,22 +1628,13 @@ a.pt-flink:hover {
   margin-bottom: 5px;
   display: block;
 }
-/* Ayuda bajo un campo. Hoy solo la usa la cédula, para explicar que con ella y
-   el teléfono se recuperan los resultados de una vez anterior — sin ese aviso,
-   pedir la cédula parece un trámite y no una comodidad. */
-.gdf-field-hint {
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--tinta-tenue);
-  margin: -6px 0 14px;
-}
 .gdf-input {
   /* SIN ESTO EL CAMPO SALE BLANCO. Un <input> no hereda el fondo: se lo pone
      el navegador. Con la app en claro no se notaba —blanco sobre blanco— y al
      pasar a negro quedaban cinco rectangulos blancos en mitad del formulario. */
   background: var(--papel-2);
   border: 1.5px solid var(--borde);
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   padding: 13px 14px;
   font-size: 15px;
   color: var(--tinta);
@@ -1692,7 +1660,7 @@ a.pt-flink:hover {
   font-weight: 700;
   font-size: 14px;
   padding: 13px;
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   transition: all 0.12s;
   border: 1.5px solid var(--borde);
   background: var(--papel);
@@ -1714,7 +1682,7 @@ a.pt-flink:hover {
   cursor: pointer;
   padding: 12px;
   background: var(--papel-2);
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   border: 1px solid var(--borde);
   margin-bottom: 20px;
 }
@@ -1752,16 +1720,16 @@ a.pt-flink:hover {
   font-weight: 800;
   font-size: 16px;
   padding: 15px;
-  border-radius: var(--radio-cta);
+  border-radius: 13px;
   transition: all 0.15s;
 }
 .gdf-btn-primary.enabled {
   cursor: pointer;
-  background: var(--cta-fondo);
+  background: var(--acento);
   /* SOBRE EL ACENTO EL TEXTO VA OSCURO. `--tinta` es claro desde que la app es
      negra, y encima del amarillo daba 1,22 de contraste: ilegible. */
   color: var(--sobre-acento);
-  box-shadow: var(--sombra-cta);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 .gdf-btn-primary.enabled:active {
   transform: scale(0.97);
@@ -1811,6 +1779,14 @@ a.pt-flink:hover {
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 18px);
   overflow: hidden;
 }
+/* Preguntas sin nada que mostrar todavia (operacion, tipo_propiedad: ver
+   `escena: 'vacio'` en data.js). En vez de un rectangulo gris vacio -clavado
+   arriba en movil, ocupando media pantalla en escritorio- la escena se quita
+   del todo y el panel de la pregunta pasa a pantalla completa (ver el
+   override de `.gdf-shell:has()` en el media query de 900px). */
+.gdf-scene.gdf-scene--vacio {
+  display: none;
+}
 .gdf-lote {
   position: absolute;
   left: 18px;
@@ -1829,18 +1805,6 @@ a.pt-flink:hover {
   letter-spacing: 0.16em;
   color: #a6aeb6;
   text-transform: uppercase;
-}
-/* El 3D (js/plano3d/) pone esta clase SOLO cuando arrancó de verdad —hay
-   WebGL y el equipo no es de gama baja, ver "soportado" en plano3d/index.js.
-   El plano 2D de recortes no se borra, se oculta: su canvas queda detrás con
-   fondo alpha:true, así que si se hiciera display:none en vez de esto se
-   verían huecos transparentes con la silueta 2D asomando de fondo. `.gdf-halo`
-   y `.gdf-mapa-real` se quedan fuera a propósito —llevan z-index propio (6 y 3)
-   y van SIEMPRE encima del canvas, que no fija el suyo—, así que la pregunta
-   de ubicación sigue viéndose con el 3D montado detrás y quieto. */
-.gdf-scene.con-plano3d .gdf-lote,
-.gdf-scene.con-plano3d .gdf-losa {
-  visibility: hidden;
 }
 /* La losa YA NO se estira a la caja: toma la forma real del apartamento vía
    --ratio (lo calcula js/planta.js según el número de alcobas) y se centra.
@@ -2286,7 +2250,7 @@ a.pt-flink:hover {
   cursor: pointer;
   background: var(--papel-2);
   border: 1.5px solid var(--borde);
-  border-radius: var(--radio-boton);
+  border-radius: 14px;
   /* Compactos a propósito: en móvil el alto es el recurso escaso (ver
      .gdf-scene). 44px es el mínimo táctil recomendado, así que no bajamos de
      ahí. El ancho se deja completo — angostarlos empeoraría el área táctil, y
@@ -2365,8 +2329,8 @@ a.pt-flink:hover {
   padding: 6px;
   background: var(--papel);
   border: 1.5px solid var(--borde);
-  border-radius: var(--radio-campo);
-  box-shadow: var(--sombra-flotante);
+  border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(30, 34, 40, 0.14);
 }
 .gdf-multi-opt-list.abierto {
   display: flex;
@@ -2396,7 +2360,16 @@ a.pt-flink:hover {
   font-weight: 800;
 }
 .gdf-multi-opt.selected::after {
-  content: '✓';
+  /* El check de js/iconos-ui.js ('check') como mascara: toma el color del
+     texto igual que los demas iconos. Antes era el caracter de check, que
+     cambia de dibujo segun la fuente y el sistema operativo. */
+  content: '';
+  flex: none;
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .gdf-multi-opt.oculto {
   display: none;
@@ -2410,15 +2383,9 @@ a.pt-flink:hover {
    radio— y adentro va el <input>, que pierde su propio borde y fondo para que
    los dos lean como una sola pieza.
 
-   UN SOLO BUSCADOR PARA BARRIOS Y LUGARES. Hubo dos pestañas y se quitaron
-   (ver `renderZonaSugerencias` en main.js): las dos clases de resultado bajan
-   ahora de la misma lista, separadas por `.gdf-opt-grupo`.
-
-   LOS CHIPS NO VIVEN DENTRO DEL CAMPO. Al principio las etiquetas iban dentro
-   del propio buscador (el patrón "para:" de un cliente de correo) y
-   `#zonaChips` usaba `display: contents` para que sus `.gdf-entorno-chip`
-   fueran hijos flex directos del envoltorio. En una fila propia ARRIBA dicen
-   mejor lo que son: la respuesta completa, venga de donde venga.
+   LOS CHIPS NO VIVEN AHÍ DENTRO: son una fila propia ARRIBA del buscador
+   (`.gdf-zona-chips`), que dice lo que son — la respuesta completa, venga de
+   un barrio, de un lugar cercano o del mapa.
 
    OJO con el contexto de apilamiento: la animación de entrada va sobre
    '.gdf-quiz-freeform' y NUNCA sobre sus hijos. Un `animation-fill:both` en
@@ -2676,9 +2643,9 @@ a.pt-flink:hover {
   background: var(--marca-tinte);
   color: var(--marca);
   border: 1px solid var(--marca-borde-suave);
-  /* Un nombre de barrio se parte por sus espacios si se le deja: "Suba
-     Rincon" en dos lineas dentro de la misma pastilla se lee como dos chips
-     pegados. La fila de arriba envuelve por chips enteros, no por palabras. */
+  /* Los chips viven dentro de un <input> visual (.gdf-zona-input-wrap): sin
+     esto, el `white-space` que hereda de ahi los partiria en dos lineas por
+     cada espacio del nombre ("Cedritos" quedaria "Cedri- tos" al envolver). */
   white-space: nowrap;
 }
 .gdf-entorno-chip-x {
@@ -2702,7 +2669,7 @@ a.pt-flink:hover {
   gap: 6px;
   background: var(--papel-2);
   border: 1.5px solid var(--borde);
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   padding: 8px 10px;
   margin-bottom: 14px;
   transition: border-color 0.15s;
@@ -2710,33 +2677,28 @@ a.pt-flink:hover {
 .gdf-zona-input-wrap:focus-within {
   border-color: var(--marca);
 }
-/* EL ENCABEZADO DE CADA GRUPO del desplegable: "Barrios y localidades" y
-   "Lugares". Es lo que permitió quitar las dos pestañas que había aquí
-   —elegir el modo ANTES de escribir— y dejar un solo campo: las dos clases de
-   resultado bajan juntas y cada una dice lo que es.
-
-   Va como <p> y no como un <button> deshabilitado a propósito: no se pulsa, no
-   recibe foco al tabular y los lectores de pantalla no lo anuncian como una
-   opción más de la lista. */
-.gdf-opt-grupo {
-  margin: 6px 4px 3px;
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--tinta-tenue);
-}
-/* El primer encabezado no necesita separarse de nada: el borde del panel ya
-   está justo encima. */
-.gdf-opt-grupo:first-child {
-  margin-top: 0;
-}
 /* Los chips, fuera del buscador (ver `zonaPanel` en templates.js).
    `.gdf-entorno-chips` ya los pinta como fila flex por sí sola — igual que en
    'entorno_deseado', donde también viven sueltos—, así que aquí solo hace
    falta separarlos del buscador de abajo. */
 .gdf-zona-chips:not(:empty) {
   margin-bottom: 12px;
+}
+/* El rótulo de cada grupo del desplegable único: "Barrios" arriba, "Lugares
+   cerca" debajo (ver renderZonaSugerencias en main.js). Pequeño y apagado:
+   separa, no compite con las filas. */
+.gdf-zona-grupo {
+  padding: 8px 10px 2px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta-tenue);
+}
+.gdf-zona-grupo:not(:first-child) {
+  margin-top: 4px;
+  border-top: 1px solid var(--borde);
+  padding-top: 10px;
 }
 /* El <input> de adentro pierde el aspecto de `.gdf-input` —fondo, borde,
    radio, el margen inferior de 14px que dejaba un hueco vacío bajo el
@@ -2793,7 +2755,7 @@ a.pt-flink:hover {
 
 .gdf-lead-badge {
   margin: 16px 0;
-  border-radius: var(--radio-tarjeta);
+  border-radius: 16px;
   padding: 16px 18px;
   text-align: center;
   animation: popIn 0.5s ease-out;
@@ -2923,9 +2885,9 @@ a.pt-flink:hover {
 .gdf-project-card {
   background: var(--papel);
   border: 1.5px solid var(--borde);
-  border-radius: var(--radio-tarjeta);
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: var(--sombra-tarjeta);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
   animation: floatUp 0.5s ease-out both;
   /* La tarjeta no se elige: sus botones de llamar y WhatsApp son lo que se
      toca. Sin `cursor: pointer` en el contenedor, para no prometer un clic
@@ -3019,11 +2981,11 @@ a.pt-flink:hover {
   font-family: var(--fuente-titulos);
   /* 26px y no 27: el precio dejó de abreviarse a "$240,8M" y ahora se pinta
      entero ("$240.800.000", ver `pesos()` en js/simulador.js). Son cinco
-     glifos más en una tarjeta cuya columna mide 260px, y los dígitos de un
-     ExtraBold geométrico —Poppins, o Sora en Leadify— son anchos. Con esto el
-     precio más largo del catálogo
-     cabe con aire de sobra y sigue siendo, de lejos, lo más grande del
-     cuerpo — el nombre del proyecto va en 17px. */
+     glifos más en una tarjeta cuya columna mide 260px, y los dígitos de
+     Poppins ExtraBold (la fuente de las constructoras) son anchos. Con esto
+     el precio más largo del catálogo cabe con aire de sobra y sigue siendo,
+     de lejos, lo más grande del cuerpo — el nombre del proyecto va en 17px.
+     En Leadify va en Inter, más estrecha: cabe con más holgura todavía. */
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -3050,7 +3012,7 @@ a.pt-flink:hover {
      de bien con una línea o con dos. */
   flex-wrap: wrap;
   max-width: 100%;
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   background: rgba(79, 214, 191, 0.14);
   border: 1px solid rgba(79, 214, 191, 0.4);
   /* EL VERDE DEPENDE DE LA SUPERFICIE, por eso es un token y no un hex. Sobre
@@ -3283,13 +3245,216 @@ a.pt-flink:hover {
    el verde propio de WhatsApp, que es como la gente lo reconoce. */
 .gdf-project-acciones {
   display: grid;
-  /* Una sola columna mientras el botón de WhatsApp está pausado (ver
-     accionesContacto en templates.js): con dos, "Llamar" se quedaba en la
-     mitad izquierda y la derecha quedaba en blanco. Al reactivar WhatsApp,
-     esto vuelve a "1fr 1fr". */
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 12px;
+}
+/* Arriendo trae un solo botón ("Ver ficha"), no el par Llamar/WhatsApp de
+   Compra: una sola columna para que ocupe el ancho entero en vez de quedar
+   a mitad de grilla con un hueco vacío al lado. */
+.gdf-project-acciones.una-accion {
+  grid-template-columns: 1fr;
+}
+
+/* El pliego de fotos de Arriendo (ver galeriaArriendo en templates.js). Donde
+   Compra despliega planos por tipología, aquí van las fotos que publica la
+   ficha: es lo que deja ver si una bodega o una oficina sirve. */
+.gdf-arriendo-galeria {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.gdf-arriendo-foto {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  /* El color de fondo se ve mientras la foto remota carga, en vez de un hueco
+     blanco que mueve el layout. */
+  background: var(--papel-2);
+}
+.gdf-arriendo-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.2s ease;
+}
+.gdf-arriendo-foto:hover img {
+  transform: scale(1.06);
+}
+
+/* --- Visor de fotos a pantalla completa (ver `visorFotos` en templates.js) --- */
+.gdf-visor {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px 64px;
+  animation: visorEntra 0.18s ease-out;
+}
+@keyframes visorEntra {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+/* La misma foto detrás, ampliada y desenfocada. El `scale` evita que el
+   desenfoque deje los bordes transparentes. */
+.gdf-visor-fondo {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(28px) brightness(0.45);
+  transform: scale(1.15);
+}
+.gdf-visor-marco {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  max-height: 100%;
+}
+.gdf-visor-foto {
+  max-width: min(1100px, 100%);
+  max-height: calc(100vh - 112px);
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.gdf-visor-flecha,
+.gdf-visor-cerrar {
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  cursor: pointer;
+  font-family: inherit;
+  line-height: 1;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+.gdf-visor-flecha {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  font-size: 30px;
+  padding-bottom: 4px;
+}
+.gdf-visor-cerrar {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 38px;
+  height: 38px;
+  font-size: 17px;
+}
+.gdf-visor-flecha:hover,
+.gdf-visor-cerrar:hover {
+  background: #fff;
+  transform: scale(1.08);
+}
+.gdf-visor-pie {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 13px;
+  text-align: center;
+}
+.gdf-visor-nombre {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gdf-visor-contador {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+/* En móvil las flechas no caben a los lados de la foto: se bajan sobre ella. */
+@media (max-width: 640px) {
+  .gdf-visor-marco {
+    gap: 0;
+  }
+  .gdf-visor-flecha {
+    position: absolute;
+    bottom: -54px;
+    z-index: 1;
+  }
+  .gdf-visor-flecha.izq { left: 12px; }
+  .gdf-visor-flecha.der { right: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gdf-visor { animation: none; }
+  .gdf-visor-flecha:hover,
+  .gdf-visor-cerrar:hover { transform: none; }
+}
+
+/* Ficha y comodidades, debajo de las fotos en el mismo pliego. */
+.gdf-detalle-titulo-bloque {
+  margin: 14px 0 7px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tinta-tenue);
+}
+.gdf-ficha {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0 18px;
+}
+.gdf-ficha-fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--borde);
+  font-size: 12.5px;
+}
+.gdf-ficha-etiqueta {
+  color: var(--tinta-suave);
+}
+.gdf-ficha-valor {
+  font-weight: 700;
+  color: var(--tinta);
+  text-align: right;
+}
+.gdf-comodidad-grupo {
+  margin-bottom: 8px;
+}
+.gdf-comodidad-grupo-nombre {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tinta-tenue);
+}
+.gdf-comodidad {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  padding: 3px 9px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--tinta-suave);
 }
 .gdf-project-acciones .gdf-project-llamar,
 .gdf-project-whatsapp {
@@ -3300,7 +3465,7 @@ a.pt-flink:hover {
   width: 100%;
   min-height: 42px;
   padding: 10px 12px;
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   font-family: var(--fuente-titulos);
   font-size: 13.5px;
   font-weight: 700;
@@ -3339,7 +3504,7 @@ a.pt-flink:hover {
   margin-top: 10px;
   padding: 10px 14px;
   border: 1.5px solid #bcd9ee;
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   background: var(--marca-tinte-2);
   cursor: pointer;
   text-align: left;
@@ -3395,7 +3560,7 @@ a.pt-flink:hover {
 .gdf-skeleton-card {
   background: var(--papel);
   border: 1.5px solid var(--borde);
-  border-radius: var(--radio-tarjeta);
+  border-radius: 16px;
   overflow: hidden;
 }
 .gdf-skeleton-header {
@@ -3444,7 +3609,7 @@ a.pt-flink:hover {
   text-align: center;
   background: var(--papel);
   border: 1.5px solid var(--borde);
-  border-radius: var(--radio-tarjeta);
+  border-radius: 16px;
   padding: 26px 20px;
   margin-bottom: 16px;
   animation: floatUp 0.4s ease-out;
@@ -3487,7 +3652,7 @@ a.pt-flink:hover {
   border: 1.5px solid var(--borde);
   background: var(--papel);
   color: var(--tinta-media);
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   padding: 12px 18px;
   font-family: var(--fuente-titulos);
   font-size: 13.5px;
@@ -3506,7 +3671,7 @@ a.pt-flink:hover {
   background: var(--acento-tinte);
   border: 1px solid var(--acento);
   color: var(--sobre-acento);
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   padding: 10px 13px;
   font-size: 12px;
   line-height: 1.45;
@@ -3639,7 +3804,7 @@ a.pt-flink:hover {
    desliza con el dedo y en escritorio con la barra/trackpad. */
 .gdf-planos {
   border: 1px solid var(--borde);
-  border-radius: var(--radio-boton);
+  border-radius: 14px;
   overflow: hidden;
   background: var(--papel);
 }
@@ -3897,7 +4062,7 @@ a.pt-flink:hover {
 .gdf-confirm-hero {
   text-align: center;
   padding: 30px 22px 26px;
-  border-radius: var(--radio-panel);
+  border-radius: 22px;
   animation: floatUp 0.5s ease-out;
 }
 /* Azul Colsubsidio (var(--marca)), no verde: mismo tono que .gdf-lead-badge.ready
@@ -4009,7 +4174,7 @@ a.pt-flink:hover {
   gap: 14px;
   background: var(--papel);
   border: 1px solid var(--borde);
-  border-radius: var(--radio-tarjeta);
+  border-radius: 16px;
   padding: 12px;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
 }
@@ -4017,7 +4182,7 @@ a.pt-flink:hover {
   width: 64px;
   height: 64px;
   flex: 0 0 auto;
-  border-radius: var(--radio-campo);
+  border-radius: 12px;
   background-size: cover;
   background-position: center;
 }
@@ -4048,7 +4213,7 @@ a.pt-flink:hover {
   gap: 13px;
   background: var(--papel);
   border: 1px solid var(--marca-borde-suave);
-  border-radius: var(--radio-tarjeta);
+  border-radius: 16px;
   padding: 13px 15px;
 }
 .gdf-confirm-contacto-avatar {
@@ -4081,7 +4246,7 @@ a.pt-flink:hover {
    la carga de recomendaciones, aplicados a que a Manuela le llegó el lead. */
 .gdf-confirm-llamada {
   margin-top: 14px;
-  border-radius: var(--radio-boton);
+  border-radius: 14px;
   padding: 13px 16px;
   font-size: 13.5px;
   font-weight: 700;
@@ -4133,7 +4298,7 @@ a.pt-flink:hover {
    (calculado en vivo por qualification.js sobre el quiz, antes de llamar). */
 .gdf-confirm-resumen {
   margin-top: 14px;
-  border-radius: var(--radio-boton);
+  border-radius: 14px;
   padding: 14px 16px;
   font-size: 13px;
   line-height: 1.55;
@@ -4758,6 +4923,19 @@ a.pt-flink:hover {
     border-right: 1px solid var(--borde);
   }
 
+  /* --- pregunta sin escena real (`.gdf-scene--vacio`, ver arriba): pantalla
+     completa en vez del grid de dos columnas, en normal Y en embebida.
+     Especificidad más alta que las reglas de arriba por las dos clases
+     dentro de :has(), así que gana sin importar el orden. */
+  .gdf-shell:has(.gdf-scene.gdf-scene--vacio) {
+    display: flex;
+    flex-direction: column;
+  }
+  .gdf-shell:has(.gdf-scene.gdf-scene--vacio) > .gdf-quiz {
+    border-left: 0;
+    border-right: 0;
+  }
+
   /* la escena crece con el lote más grande; damos algo más de margen para
      que el plano no toque los bordes de la columna */
   .gdf-shell:has(.gdf-scene) > .gdf-scene .gdf-lote {
@@ -4903,7 +5081,7 @@ a.pt-flink:hover {
 
 
 /* ============================================================
-   Leadify MOTION SYSTEM
+   LEADIFY MOTION SYSTEM
    .claude/skills/leadify-motion-system
    Solo se activa con la marca Leadify: la clase `gdf-con-senal` la pone
    senal.js al montar, y no monta para las cuatro constructoras revendidas,
@@ -5048,47 +5226,1501 @@ a.pt-flink:hover {
   }
 }
 
+/* --- plano 3D ---------------------------------------------------------
+   Con el lienzo de WebGL montado, el plano de recortes sobra. No se borra: si
+   no hay WebGL o el equipo es lento, `js/plano3d/index.js` nunca pone esta
+   clase y el 2D sigue siendo el camino. */
+.gdf-scene.con-plano3d .gdf-losa,
+.gdf-scene.con-plano3d .gdf-lote,
+.gdf-scene.con-plano3d .gdf-halo { display: none; }
 
-/* ============ Leadify: LO QUE NO CABE EN UN TOKEN ============ */
-/* Casi todo el sistema de la landing viaja en variables —fuente, radios,
-   sombras, colores— y lo fija js/tema.js (ver SISTEMA_Leadify). Aquí quedan las
-   decisiones que no son un valor sino una forma de componer, y que por eso no
-   se pueden guardar en un token.
+/* ============ LEADIFY — MANUAL DE MARCA v1.0 ============
+   Solo la marca Leadify: `data-marca` lo pone js/tema.js en el <html>. Las
+   cuatro constructoras no pasan por aqui y se quedan exactamente como estaban.
 
-   EL GANCHO ES `data-marca`, QUE PONE tema.js EN EL <html>, y no la clase
-   `.gdf-con-senal` que usa la sección de arriba. Esa clase la pone senal.js al
-   montar el fondo animado: significa "hay señal detrás", no "esta es Leadify".
-   Son lo mismo hoy porque el fondo solo se monta para Leadify, pero apagarlo
-   —o que falle su canvas— se llevaría por delante la tipografía, que no tiene
-   nada que ver. tema.js corre antes que nada y es quien sabe de qué marca se
-   trata; este es su atributo. */
+   Los COLORES ya llegan por tokens (tema.js: rojo #FF6259 como unico acento,
+   navy #2D3B4E, blanco y gris claro #F5F6F8, linea #DCE1E7, sin verde). Este
+   bloque pone lo que un token no alcanza a decir:
+   - la FORMA del manual: tarjetas 18 px, interiores 14 px, botones y chips en
+     pastilla, una sola sombra suave;
+   - la SELECCION en navy (borde, fondo gris claro y check navy), para que el
+     rojo quede solo en la accion principal, el progreso y los datos clave;
+   - los fondos LISOS, sin degradados ni lavados rosados;
+   - los pocos colores escritos a mano en las reglas de arriba (verdes,
+     azules de Colsubsidio, amarillos) que no pasan por los tokens.
 
-/* EL ANTETÍTULO. Cada sección de la landing abre con una versalita coral
-   interletrada: "Leadify · Demo en vivo", "Pruébalo tú mismo". Aquí el
-   equivalente exacto es el contador de preguntas — lo primero que se lee del
-   panel, y hasta ahora un gris de 11px que no lo parecía. Mismos valores que
-   el `tracking-[0.15em]` de la landing. */
-[data-marca='leadify'] .gdf-step-count {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--marca);
+   Antes de agregar algo aqui, preferir un token de :root: este bloque es para
+   lo que de verdad cambia de forma, no para repetir colores. */
+
+html[data-marca='leadify'] body {
+  font-weight: 500;
 }
-
-/* SORA ES MÁS ANCHA QUE POPPINS al mismo cuerpo, y en ExtraBold la diferencia
-   se nota. Sin apretar el interletrado, un enunciado que cabía en dos líneas
-   pasa a tres y empuja las opciones fuera de la primera pantalla, que es el
-   recurso escaso del panel (ver .gdf-opt-btn). -0.02em es lo que usa la
-   landing en sus titulares. */
-[data-marca='leadify'] .gdf-question h2,
-[data-marca='leadify'] .gdf-carnet h2 {
+html[data-marca='leadify'] h1,
+html[data-marca='leadify'] h2,
+html[data-marca='leadify'] h3 {
   letter-spacing: -0.02em;
 }
 
-/* EL CTA EN PASTILLA PIDE MÁS ALTO. Con --radio-cta en 999px, los 15px de
-   padding dejaban un botón que se leía como una cápsula apretada; 17px es el
-   `py-4` con el que la landing compone el suyo. */
-[data-marca='leadify'] .gdf-btn-primary {
-  padding: 17px 28px;
+/* --- Fondos lisos ------------------------------------------------------ */
+/* Lo que se ve detras de la foto de un proyecto (o en su lugar si no tiene):
+   ver `fondo` en projectCard() de js/templates.js. */
+html[data-marca='leadify'] {
+  --fondo-sin-foto: var(--papel-2);
+}
+/* El avatar del carne: el registro se rediseña en T4b; mientras tanto, liso. */
+html[data-marca='leadify'] .gdf-carnet .avatar {
+  background: var(--papel-2);
+  border: 1px solid var(--borde);
+}
+html[data-marca='leadify'] .gdf-escarapela,
+html[data-marca='leadify'] .gdf-result,
+html[data-marca='leadify'] .gdf-confirmacion {
+  background: var(--papel);
+}
+/* El desvanecido de las pestanas de tipologia fundia contra el negro de la
+   consola: sobre blanco dejaba una sombra gris en el borde. */
+html[data-marca='leadify'] .gdf-tipo-tabs-wrap::after {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), var(--papel) 78%);
+}
+
+/* --- Boton principal: rojo en pastilla, texto blanco a 19 px Bold --------
+   Blanco sobre #FF6259 da 3,5:1, que WCAG AA acepta solo para texto grande
+   (18,67 px en negrita o 24 px). Por eso el tamano no es decorativo: 18 px
+   NO alcanza (medido con axe) y si baja, el blanco deja de cumplir. Ver la
+   nota en js/tema.js. */
+html[data-marca='leadify'] .gdf-btn-primary {
+  border-radius: var(--radio-boton);
+  font-size: 19px;
+  font-weight: 700;
+  padding: 15px 24px;
+  background: var(--borde);
+  color: var(--tinta-tenue);
+}
+html[data-marca='leadify'] .gdf-btn-primary.enabled {
+  background: var(--acento);
+  color: var(--sobre-acento);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--acento) 22%, transparent);
+  transition: background-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+html[data-marca='leadify'] .gdf-btn-primary.enabled:hover {
+  background: var(--acento-oscuro);
+}
+/* LLAMAR, dentro de cada tarjeta de resultado, reusa el boton principal pero
+   va a 13,5 px: a ese tamano el blanco sobre #FF6259 no cumple, asi que aqui
+   el fondo es el rojo hondo de `--marca-texto` (4,8:1). T9 rediseña estas
+   tarjetas; esto solo evita que queden ilegibles mientras tanto. */
+html[data-marca='leadify'] .gdf-project-acciones .gdf-project-llamar {
+  border-radius: var(--radio-boton);
+  font-size: 13.5px;
+  padding: 10px 12px;
+  background: var(--marca-texto);
+  box-shadow: none;
+}
+/* WhatsApp: secundario, en navy de contorno. El verde de WhatsApp era el
+   unico verde que quedaba en la pantalla de resultados. */
+html[data-marca='leadify'] .gdf-project-whatsapp {
+  border-radius: var(--radio-boton);
+  background: var(--papel);
+  color: var(--tinta);
+  border: 1.5px solid var(--tinta);
+}
+html[data-marca='leadify'] .gdf-project-whatsapp:hover {
+  filter: none;
+  background: var(--papel-2);
+}
+
+/* --- Foco visible y campos --------------------------------------------- */
+html[data-marca='leadify'] .gdf-input {
+  border-radius: var(--radio-interior);
+  font-family: var(--fuente-cuerpo);
+}
+html[data-marca='leadify'] .gdf-input:focus {
+  border-color: var(--tinta);
+  box-shadow: 0 0 0 3px rgba(45, 59, 78, 0.18);
+}
+html[data-marca='leadify'] .gdf-btn-primary:focus-visible,
+html[data-marca='leadify'] .gdf-opt-btn:focus-visible,
+html[data-marca='leadify'] .gdf-multi-opt:focus-visible,
+html[data-marca='leadify'] .gdf-back-btn:focus-visible,
+html[data-marca='leadify'] .gdf-project-whatsapp:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45, 59, 78, 0.28);
+}
+
+/* --- Consentimiento: check navy (estado aprobado: valido = navy) ------- */
+html[data-marca='leadify'] .gdf-consent {
+  border-radius: var(--radio-interior);
+}
+html[data-marca='leadify'] .gdf-consent .box {
+  border-color: var(--tinta-tenue);
+}
+html[data-marca='leadify'] .gdf-consent .box.checked {
+  background: var(--tinta);
+}
+
+/* --- Progreso: rojo solido, sin degradado ni brillo -------------------- */
+html[data-marca='leadify'] .gdf-progress-track {
+  height: 6px;
+  border-radius: 999px;
+}
+html[data-marca='leadify'] .gdf-progress-fill {
+  background: var(--marca);
+  border-radius: 999px;
+}
+html[data-marca='leadify'] .gdf-progress-fill::after {
+  display: none;
+}
+
+/* --- Opciones: hover y seleccion en navy ------------------------------- */
+html[data-marca='leadify'] .gdf-opt-btn {
+  border-radius: var(--radio-interior);
+  background: var(--papel);
+}
+html[data-marca='leadify'] .gdf-opt-btn:hover {
+  border-color: var(--tinta);
+  background: var(--papel-2);
+}
+html[data-marca='leadify'] .gdf-multi-opt-list {
+  border-radius: var(--radio-interior);
+  box-shadow: var(--sombra-tarjeta);
+}
+html[data-marca='leadify'] .gdf-multi-opt.selected {
+  background: var(--papel-2);
+  color: var(--tinta);
+}
+/* Chips de lo elegido (zona, entorno, estilo de vida) y del resumen: gris
+   claro con texto navy. */
+html[data-marca='leadify'] .gdf-entorno-chip,
+html[data-marca='leadify'] .gdf-chip {
+  background: var(--papel-2);
+  color: var(--tinta);
+  border: 1px solid var(--borde);
+}
+html[data-marca='leadify'] .gdf-entorno-chip-x {
+  color: var(--tinta-suave);
+}
+html[data-marca='leadify'] .gdf-chip.hi {
+  background: var(--papel);
+  color: var(--tinta);
+  border: 1.5px solid var(--tinta);
+}
+html[data-marca='leadify'] .gdf-halo-chip.coincide {
+  background: var(--tinta);
+  border-color: var(--tinta);
+}
+html[data-marca='leadify'] .gdf-halo-chip.coincide img {
+  filter: brightness(0) invert(1);
+}
+
+/* --- Tarjetas: 18 px y la sombra del manual ---------------------------- */
+html[data-marca='leadify'] .gdf-project-card,
+html[data-marca='leadify'] .gdf-skeleton-card,
+html[data-marca='leadify'] .gdf-reco-aviso,
+html[data-marca='leadify'] .gdf-lead-badge,
+html[data-marca='leadify'] .gdf-confirm-hero,
+html[data-marca='leadify'] .gdf-confirm-proyecto,
+html[data-marca='leadify'] .gdf-confirm-contacto,
+html[data-marca='leadify'] .gdf-carnet {
+  border-radius: var(--radio-tarjeta);
+}
+html[data-marca='leadify'] .gdf-project-card,
+html[data-marca='leadify'] .gdf-confirm-proyecto,
+html[data-marca='leadify'] .gdf-carnet {
+  border: 1px solid var(--borde);
+  box-shadow: var(--sombra-tarjeta);
+}
+html[data-marca='leadify'] .gdf-project-card:hover {
+  border-color: var(--tinta-tenue);
+}
+html[data-marca='leadify'] .gdf-project-razon {
+  border-left-color: var(--tinta);
+  border-radius: 0 var(--radio-interior) var(--radio-interior) 0;
+}
+
+/* --- Avisos y estados del lead: gris claro y navy, sin verde ni amarillo - */
+html[data-marca='leadify'] .gdf-reco-banner {
+  background: var(--papel-2);
+  border: 1px solid var(--borde);
+  color: var(--tinta-media);
+  border-radius: var(--radio-interior);
+}
+html[data-marca='leadify'] .gdf-reco-aviso.error {
+  border-color: var(--marca);
+  background: var(--papel);
+}
+html[data-marca='leadify'] .gdf-lead-badge.ready,
+html[data-marca='leadify'] .gdf-lead-badge.nurture {
+  background: var(--papel-2);
+  border: 1px solid var(--borde);
+}
+html[data-marca='leadify'] .gdf-lead-badge .title,
+html[data-marca='leadify'] .gdf-lead-badge.nurture .title {
+  color: var(--tinta);
+}
+html[data-marca='leadify'] .gdf-lead-badge .subcopy,
+html[data-marca='leadify'] .gdf-lead-badge.nurture .subcopy {
+  color: var(--tinta-media);
+}
+html[data-marca='leadify'] .gdf-lead-note,
+html[data-marca='leadify'] .gdf-lead-badge.nurture .gdf-lead-note {
+  background: var(--papel);
+  color: var(--tinta);
+  border: 1px solid var(--borde);
+}
+html[data-marca='leadify'] .gdf-lead-submit.sent {
+  color: var(--tinta);
+}
+html[data-marca='leadify'] .gdf-lead-submit.error {
+  color: var(--marca-texto);
+}
+html[data-marca='leadify'] .gdf-project-subsidio {
+  background: var(--papel-2);
+  border: 1px solid var(--borde);
+  color: var(--tinta);
+}
+
+/* --- Confirmacion: exito en navy, error en rojo ------------------------ */
+html[data-marca='leadify'] .gdf-confirm-hero--ok {
+  background: var(--papel-2);
+  border: 1px solid var(--borde);
+}
+html[data-marca='leadify'] .gdf-confirm-hero--error {
+  background: var(--papel);
+  border: 1.5px solid var(--marca);
+}
+html[data-marca='leadify'] .gdf-confirm-hero h2,
+html[data-marca='leadify'] .gdf-confirm-hero--error h2 {
+  color: var(--tinta);
+}
+html[data-marca='leadify'] .gdf-confirm-hero p,
+html[data-marca='leadify'] .gdf-confirm-hero--error p {
+  color: var(--tinta-media);
+}
+html[data-marca='leadify'] .gdf-confirm-check {
+  background: var(--tinta);
+  box-shadow: 0 10px 24px rgba(45, 59, 78, 0.22);
+}
+html[data-marca='leadify'] .gdf-confirm-check::before {
+  border-color: var(--borde);
+}
+html[data-marca='leadify'] .gdf-confirm-check.err {
+  background: var(--marca);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--marca) 25%, transparent);
+}
+html[data-marca='leadify'] .gdf-confirm-contacto,
+html[data-marca='leadify'] .gdf-confirm-contacto-avatar {
+  border-color: var(--borde);
+}
+html[data-marca='leadify'] .gdf-confirm-contacto-avatar {
+  background: var(--papel-2);
+}
+html[data-marca='leadify'] .gdf-confirm-llamada {
+  border-radius: var(--radio-interior);
+}
+html[data-marca='leadify'] .gdf-confirm-llamada--ok {
+  background: var(--papel);
+  border: 1px solid var(--borde);
+  color: var(--tinta);
+}
+html[data-marca='leadify'] .gdf-confirm-llamada--error {
+  background: var(--papel);
+  border: 1.5px solid var(--marca);
+  color: var(--marca-texto);
+}
+/* Temperatura del lead en el resumen post-llamada: sin el rojo/ambar/azul
+   de semaforo. Caliente lleva el acento; las otras dos, la escala navy. */
+html[data-marca='leadify'] .gdf-temp--caliente {
+  background: var(--marca-velo-fuerte);
+  color: var(--marca-texto);
+  border-color: var(--marca);
+}
+html[data-marca='leadify'] .gdf-temp--tibio {
+  background: var(--papel-2);
+  color: var(--tinta);
+  border-color: var(--tinta-tenue);
+}
+html[data-marca='leadify'] .gdf-temp--frio {
+  background: var(--papel-2);
+  color: var(--tinta-suave);
+  border-color: var(--borde);
+}
+
+/* --- Contadores de Arriendo (T8, variante A "filas con botones grandes") ---
+   Aprobada por Diego el 2026-10-06 (mockup: design/formulario-rediseno/
+   mockups-arriendo). Sirve a todas las marcas con sus tokens. */
+.gdf-contador {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--borde);
+}
+.gdf-contador-icono {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--papel-2);
+  color: var(--tinta);
+}
+.gdf-contador-icono .gdf-icono-ui {
+  width: 20px;
+  height: 20px;
+}
+.gdf-contador-nombre {
+  flex: 1;
+  min-width: 0;
+}
+.gdf-contador-nombre b {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--tinta);
+}
+.gdf-contador-nombre span {
+  font-size: 12px;
+  color: var(--tinta-suave);
+}
+.gdf-contador-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gdf-contador-valor {
+  min-width: 34px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+/* 44 px: el minimo comodo para el dedo (antes 32). */
+.gdf-contador-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1.5px solid var(--borde);
+  border-radius: 999px;
+  background: var(--papel);
+  color: var(--tinta);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.gdf-contador-btn .gdf-icono-ui {
+  width: 18px;
+  height: 18px;
+}
+.gdf-contador-btn:hover:not(:disabled) {
+  border-color: var(--tinta);
+}
+.gdf-contador-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.gdf-contador-btn:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+.gdf-contador-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45, 59, 78, 0.28);
+}
+
+/* --- Estilo de vida de Arriendo (T8, variante A "chips con icono") ----- */
+.gdf-estilo-cuenta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--tinta-suave);
+}
+.gdf-estilo-cuenta b {
+  color: var(--tinta);
+}
+.gdf-estilo-cuenta .puntos {
+  display: flex;
+  gap: 4px;
+}
+.gdf-estilo-cuenta .puntos i {
+  width: 22px;
+  height: 5px;
+  border-radius: 9px;
+  background: var(--borde);
+  transition: background 0.15s;
+}
+.gdf-estilo-cuenta .puntos i.on {
+  background: var(--tinta);
+}
+.gdf-estilo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.gdf-estilo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1.5px solid var(--borde);
+  border-radius: 999px;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: var(--fuente-cuerpo);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.gdf-estilo-chip svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+}
+.gdf-estilo-chip:hover {
+  border-color: var(--tinta-suave);
+}
+/* Elegido = navy (estado aprobado en T1); el borde de 2 px no mueve el chip. */
+.gdf-estilo-chip.selected {
+  border-color: var(--tinta);
+  box-shadow: inset 0 0 0 0.5px var(--tinta);
+  background: var(--papel-2);
+}
+.gdf-estilo-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45, 59, 78, 0.28);
+}
+
+/* ============ ICONOS DE INTERFAZ (js/iconos-ui.js) ============
+   Miden 1em para crecer con la letra que acompañan y toman su color
+   (`currentColor`). Si el SVG trae `width` propio — `icono(n, { tam: 20 })` —
+   se respeta: por eso el :not([width]); sin el, esta regla le ganaria al
+   atributo, que en SVG no tiene especificidad. */
+.gdf-icono-ui {
+  flex: none;
+  vertical-align: -0.15em;
+}
+.gdf-icono-ui:not([width]) {
+  width: 1em;
+  height: 1em;
+}
+
+/* Los botones de zoom del mapa: Leaflet los escribe con los caracteres "+" y
+   "menos" de texto. En Leadify se pintan con los iconos `mas` y `menos` de
+   js/iconos-ui.js, como mascara para que tomen el color del texto. El texto
+   original se queda (font-size 0) porque Leaflet lo usa de nombre accesible
+   junto con su title. El rediseño del mapa es de T7. */
+html[data-marca='leadify'] .gdf-mapa-real .leaflet-control-zoom a {
+  font-size: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+html[data-marca='leadify'] .gdf-mapa-real .leaflet-control-zoom a::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  -webkit-mask: var(--icono-zoom) center / contain no-repeat;
+  mask: var(--icono-zoom) center / contain no-repeat;
+}
+html[data-marca='leadify'] .gdf-mapa-real .leaflet-control-zoom-in {
+  --icono-zoom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M12 5.5v13M5.5 12h13'/%3E%3C/svg%3E");
+}
+html[data-marca='leadify'] .gdf-mapa-real .leaflet-control-zoom-out {
+  --icono-zoom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'%3E%3Cpath d='M5.5 12h13'/%3E%3C/svg%3E");
+}
+
+/* El check de la insignia de una amenidad que coincide. `.gdf-amenity svg`
+   pinta a 20 px y en el color de marca todo SVG de la tarjeta, y la insignia
+   es un circulo de 15 px en ese mismo color: sin esto el check quedaba del
+   color del fondo, invisible. A 11 px el trazo de 1,6 casi no se ve, por eso
+   va mas grueso aqui. */
+.gdf-amenity-check .gdf-icono-ui {
+  width: 11px;
+  height: 11px;
+  color: inherit;
+  stroke-width: 2.6;
+}
+
+/* La lista de AMENIDADES (pregunta de entorno de Compra) va en flujo, no
+   flotando. Flotaba encima de los chips y de "Continuar", y como es de
+   seleccion multiple se queda abierta tras cada eleccion: el boton quedaba
+   tapado y el clic caia en la lista. Asi, abierta, empuja el boton hacia
+   abajo en vez de cubrirlo. La de barrios (#zonaOpciones) sigue flotando:
+   se cierra sola al elegir. */
+.gdf-entorno-combo #entornoOpciones {
+  position: static;
+  margin: -6px 0 12px;
+}
+/* En el movil la escena ocupa el tercio de arriba: con 280 px de lista el
+   boton quedaba cortado por el borde inferior. */
+@media (max-width: 899px) {
+  .gdf-entorno-combo #entornoOpciones {
+    max-height: min(280px, 24dvh);
+  }
+}
+
+/* ============ PANTALLAS DE PREGUNTA (T5, variante B "lista sobria") ============
+   Aprobada por Diego el 2026-10-03 (mockup: design/formulario-rediseno/
+   mockups-preguntas). Arriba, fijo, el progreso de las PREGUNTAS (un segmento
+   por pregunta) con el paso y la afinidad; en el cuerpo, el enunciado, las
+   respuestas en filas y "Atras" justo debajo de ellas. Es estructura, no
+   marca: usa los tokens, asi que cada marca la ve con sus colores. */
+
+.gdf-quiz-progreso {
+  flex: 0 0 auto;
+  margin-bottom: 6px;
+}
+.gdf-pasos {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+}
+.gdf-pasos i {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--papel-2);
+}
+.gdf-pasos i.hecho,
+.gdf-pasos i.actual {
+  background: var(--marca);
+}
+/* M03 del manual (draw): el segmento de la pregunta actual se dibuja de
+   izquierda a derecha al entrar. */
+.gdf-pasos i.actual {
+  transform-origin: left center;
+  animation: pasoDibuja 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes pasoDibuja {
+  from { transform: scaleX(0); }
+  to { transform: none; }
+}
+.gdf-quiz-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 10px;
+}
+.gdf-quiz-meta .gdf-step-count {
+  margin: 0;
+}
+.gdf-afinidad {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tinta-suave);
+  white-space: nowrap;
+}
+.gdf-afinidad b {
+  color: var(--marca-texto);
+  font-weight: 800;
+}
+
+/* Enunciado con mas presencia. */
+.gdf-question h2 {
+  font-size: 23px;
+  letter-spacing: -0.02em;
+}
+.gdf-question p {
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+/* M01 del manual (fade up, 350-500 ms): mas recorrido que antes (10 px). */
+@keyframes quizEntra {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.gdf-quiz-cuerpo > .gdf-question,
+.gdf-options > *,
+.gdf-quiz-freeform {
+  animation-duration: 0.42s;
+}
+.gdf-quiz-cuerpo > .gdf-back-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  animation: quizEntra 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gdf-pasos i.actual,
+  .gdf-quiz-cuerpo > .gdf-back-btn {
+    animation: none;
+  }
+}
+
+/* --- Respuestas en FILA: ancho completo, indicador a la derecha ---------- */
+.gdf-options--filas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gdf-options--filas .gdf-opt-btn,
+.gdf-options--filas .gdf-opt-btn.has-hint {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  min-height: 56px;
+  text-align: left;
+}
+.gdf-opt-texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.gdf-options--filas .gdf-opt-btn .label {
+  font-size: 16px;
+  font-weight: 700;
+}
+.gdf-options--filas .gdf-opt-btn .hint {
+  font-size: 12.5px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+.gdf-opt-icono {
+  display: inline-flex;
+  font-size: 22px;
+  color: var(--tinta);
+}
+.gdf-opt-flecha {
+  display: inline-flex;
+  font-size: 18px;
+  color: var(--tinta-tenue);
+  transition: transform 0.15s, color 0.15s;
+}
+.gdf-opt-btn:hover .gdf-opt-flecha {
+  color: var(--tinta);
+  transform: translateX(3px);
+}
+.gdf-opt-radio {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--tinta-tenue);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+/* Elegida: se ve al volver con "Atras". Borde de 2 px sin mover el layout
+   (el segundo pixel es una sombra interior). */
+.gdf-opt-btn.selected {
+  border-color: var(--tinta);
+  box-shadow: inset 0 0 0 1px var(--tinta);
+}
+.gdf-opt-btn.selected .gdf-opt-radio {
+  border: none;
+  background: var(--tinta);
+  color: var(--papel);
+}
+
+/* --- Respuestas en CASILLA (numericas cortas) ------------------------- */
+.gdf-options--casillas .gdf-opt-texto {
+  align-items: center;
+  text-align: center;
+}
+
+html[data-marca='leadify'] .gdf-opt-btn.selected {
+  background: var(--papel-2);
+}
+
+@media (min-width: 900px) {
+  .gdf-question h2 {
+    font-size: 28px;
+  }
+  .gdf-question p {
+    font-size: 15px;
+  }
+  /* El "Atras" ya no es un pie fijo: va dentro del cuerpo. El difuminado que
+     avisa que hay mas abajo baja hasta el filo del panel. */
+  .gdf-quiz::after {
+    bottom: 0;
+  }
+}
+
+/* ============ RESULTADOS DE COMPRA (T9) ============
+   Tarjetas que se leen de un vistazo: nombre, precio, ubicacion y
+   especificaciones; la razon del match en viñetas con etiqueta; lo que
+   coincide del entorno; y las acciones AL PIE, alineadas entre tarjetas.
+   Estructura con tokens, para todas las marcas; lo de Leadify va al final. */
+
+.gdf-project-card {
+  height: 100%;
+}
+.gdf-project-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.gdf-project-body > .gdf-project-subsidio {
+  align-self: flex-start;
+}
+
+/* La razon: encabezado por puesto, hasta tres motivos y "A considerar". */
+.gdf-project-razon {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  background: var(--papel-2);
+  border-left: 0;
+  border-radius: var(--radio-interior);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--tinta-media);
+}
+.gdf-razon-titulo {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tinta);
+  margin-bottom: 8px;
+}
+.gdf-razon-lista {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gdf-razon-lista li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.gdf-razon-lista li .gdf-icono-ui {
+  color: var(--tinta);
+  margin-top: 0.15em;
+}
+.gdf-razon-lista b,
+.gdf-razon-considerar b {
+  color: var(--tinta);
+  font-weight: 700;
+}
+.gdf-razon-considerar {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--borde);
+}
+.gdf-razon-lista + .gdf-razon-considerar {
+  margin-top: 10px;
+}
+.gdf-project-razon > :first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Las acciones: la principal (dispara la llamada) arriba y a todo el ancho;
+   la secundaria, un enlace, debajo. Al pie de la tarjeta. */
+.gdf-project-acciones {
+  grid-template-columns: 1fr;
+  margin-top: auto;
+  padding-top: 16px;
+}
+.gdf-project-acciones .gdf-project-llamar,
+.gdf-project-acciones .gdf-project-whatsapp {
+  min-height: 46px;
+  font-size: 15px;
+  gap: 8px;
+}
+.gdf-project-acciones .gdf-project-llamar .gdf-icono-ui {
+  font-size: 17px;
+}
+/* Sin acciones al pie el detalle se pegaba al boton. */
+.gdf-project-acciones + * {
+  margin-top: 12px;
+}
+
+/* El "% match" cuenta (ver animarContadores en main.js): cifras de ancho
+   fijo para que la pastilla no tiemble mientras sube. */
+.gdf-match-cifra {
+  font-variant-numeric: tabular-nums;
+}
+.gdf-project-badge {
+  white-space: nowrap;
+}
+
+.gdf-reco-banner {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.gdf-reco-banner .gdf-icono-ui {
+  font-size: 16px;
+  margin-top: 0.1em;
+}
+
+/* --- Leadify: rojo solo para el precio y la accion principal ------------ */
+html[data-marca='leadify'] .gdf-result-head .eyebrow {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--marca-texto);
+}
+html[data-marca='leadify'] .gdf-project-badge {
+  background: var(--tinta);
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 11px;
+}
+html[data-marca='leadify'] .gdf-project-razon {
+  border-left: 0;
+  border-radius: var(--radio-interior);
+}
+html[data-marca='leadify'] .gdf-project-acciones .gdf-project-llamar {
+  font-size: 15px;
+  padding: 12px 16px;
+}
+/* "Tiene lo que buscas" en navy: es una coincidencia, no una accion. */
+html[data-marca='leadify'] .gdf-project-entorno.destacado {
+  background: var(--papel-2);
+  border-left: 0;
+  border-radius: var(--radio-interior);
+  padding: 12px 14px 10px;
+}
+html[data-marca='leadify'] .gdf-project-entorno.destacado .gdf-entorno-titulo {
+  color: var(--tinta);
+}
+html[data-marca='leadify'] .gdf-amenity.coincide {
+  border-color: var(--tinta);
+  background: var(--papel);
+}
+html[data-marca='leadify'] .gdf-amenity svg,
+html[data-marca='leadify'] .gdf-amenity.coincide .gdf-amenity-label {
+  color: var(--tinta);
+}
+html[data-marca='leadify'] .gdf-amenity-check {
+  background: var(--tinta);
+}
+/* La regla de arriba pinta en navy todo SVG de la amenidad; el check de la
+   insignia va sobre fondo navy y tiene que quedar blanco. */
+html[data-marca='leadify'] .gdf-amenity-check .gdf-icono-ui {
+  color: #fff;
+}
+/* Los enlaces secundarios de la tarjeta (desplegar el detalle, la ficha
+   oficial) en navy: el rojo queda para el precio y "Hablar con un asesor". */
+html[data-marca='leadify'] .gdf-project-detalle > summary,
+html[data-marca='leadify'] .gdf-project-ficha {
+  color: var(--tinta);
+}
+html[data-marca='leadify'] .gdf-project-detalle {
+  border-top-color: var(--borde);
+}
+
+/* ============ CIERRES (T10) ============ */
+
+/* Leadify: el secundario en pastilla y navy, como "Escribir por WhatsApp". */
+html[data-marca='leadify'] .gdf-btn-secundario {
+  border-radius: var(--radio-boton);
+  border-color: var(--tinta);
+  color: var(--tinta);
+  font-size: 15px;
+  padding: 13px 20px;
+}
+html[data-marca='leadify'] .gdf-btn-secundario:hover {
+  border-color: var(--tinta);
+  color: var(--tinta);
+  background: var(--papel-2);
+}
+/* Confirmacion: los numeros de "Que sigue" y el telefono en navy; el rojo
+   queda para el precio. */
+html[data-marca='leadify'] .gdf-paso-num {
+  background: var(--tinta);
+  color: #fff;
+}
+html[data-marca='leadify'] .gdf-confirm-contacto-tel {
+  color: var(--tinta);
+}
+html[data-marca='leadify'] .gdf-restart-btn {
+  color: var(--tinta);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* En escritorio los hijos de la pantalla van a todo el ancho de la columna
+   (ver el media query de 900px): con inline-flex el texto quedaba a la
+   izquierda. */
+html[data-marca='leadify'] .gdf-restart-btn {
+  justify-content: center;
+}
+html[data-marca='leadify'] .gdf-confirm-resumen-reco strong {
+  color: var(--tinta);
+}
+
+/* ============ ZONA Y MAPA (T7) ============
+   Mapa sobrio: los mismos mosaicos de OpenStreetMap de siempre (sin
+   proveedor nuevo, mismos terminos y la misma atribucion), pero en gris claro
+   para que el unico color sea la seleccion en rojo. Decision de Diego
+   (2026-10-03) frente a CARTO o Stadia, que piden licencia comercial.
+   Solo Leadify: las constructoras siguen con el mapa a color. */
+html[data-marca='leadify'] .gdf-mapa-real {
+  background: var(--papel-2);
+}
+/* El filtro va sobre el PANEL DE MOSAICOS, no sobre el mapa: los poligonos
+   (localidades y barrio elegido) viven en otro panel y conservan su color. */
+html[data-marca='leadify'] .gdf-mapa-real .leaflet-tile-pane {
+  filter: grayscale(1) contrast(0.92) brightness(1.06);
+}
+html[data-marca='leadify'] .gdf-mapa-real .leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--tinta-suave);
+}
+html[data-marca='leadify'] .gdf-mapa-real .leaflet-control-attribution a {
+  color: var(--tinta-media);
+}
+html[data-marca='leadify'] .gdf-mapa-real .leaflet-control-zoom {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-interior);
+  overflow: hidden;
+  box-shadow: var(--sombra-tarjeta);
+}
+html[data-marca='leadify'] .gdf-zona-poly {
+  stroke: var(--tinta-suave);
+  stroke-opacity: 0.45;
+}
+html[data-marca='leadify'] .gdf-zona-poly.sel {
+  stroke: var(--marca);
+  stroke-opacity: 1;
+  stroke-width: 2.5;
+}
+html[data-marca='leadify'] .gdf-barrio-poly {
+  fill-opacity: 0.45;
+  stroke: var(--marca);
+  stroke-width: 2;
+}
+html[data-marca='leadify'] .gdf-zona-tip {
+  border-radius: 999px;
+  padding: 4px 10px;
+  box-shadow: var(--sombra-tarjeta);
+}
+/* "1 zona elegida": es un conteo, no una accion. */
+html[data-marca='leadify'] .gdf-zona-eco strong {
+  color: var(--tinta);
+}
+
+/* MOVIL: en la pregunta de zona el mapa ES la respuesta, y la franja de
+   siempre (30 % del alto) no alcanzaba para tocar un barrio. Solo mientras
+   el mapa esta montado; el resto de preguntas conserva la escena chica. */
+@media (max-width: 899px) {
+  .gdf-scene:has(.gdf-mapa-real) {
+    height: clamp(260px, 44vh, 420px);
+  }
+}
+
+/* ============ QA PREVIO DE T12: CONTRASTE AA ============
+   Hallazgos de axe (WCAG 2 AA) sobre las pantallas de Leadify. El rojo del
+   manual (#FF6259) da 3,5:1 sobre blanco: sirve para texto grande y para
+   formas, no para letra pequena, que va con el rojo hondo `--marca-texto`
+   (4,8:1). Y el gris #A7ADB5 (`--tinta-tenue`) no es para texto que haya que
+   leer: placeholders y deshabilitado, nada mas. */
+html[data-marca='leadify'] .eyebrow,
+html[data-marca='leadify'] .gdf-confirm-proyecto-precio {
+  color: var(--marca-texto);
+}
+html[data-marca='leadify'] .gdf-carnet .band {
+  background: var(--marca-texto);
+}
+html[data-marca='leadify'] .gdf-hint,
+html[data-marca='leadify'] .gdf-zona-eco .vacio,
+html[data-marca='leadify'] .gdf-project-dir {
+  color: var(--tinta-suave);
+}
+/* `.gdf-escarapela .kicker .eyebrow` pinta el rotulo del registro con mas
+   especificidad que la regla de arriba. */
+html[data-marca='leadify'] .gdf-escarapela .kicker .eyebrow {
+  color: var(--marca-texto);
+}
+/* El pie legal llevaba un gris escrito a mano (#b3b6b9, 2:1). */
+html[data-marca='leadify'] .gdf-disclaimer {
+  color: var(--tinta-suave);
+}
+
+/* ============ ARRIENDO (union con la rama de Santiago) ============
+   Las tarjetas, avisos y confirmacion de Arriendo reusan el marcado de
+   Compra (T9 y T10) y heredan su diseno. Aqui solo lo propio de Arriendo. */
+/* El motivo de Arriendo llega redactado como un parrafo, no como lista. */
+.gdf-razon-texto {
+  margin: 0;
+}
+/* Las flechas del visor ya son iconos SVG: sin el ajuste del simbolo. */
+.gdf-visor-flecha {
+  padding-bottom: 0;
+}
+html[data-marca='leadify'] .gdf-visor-flecha,
+html[data-marca='leadify'] .gdf-visor-cerrar {
+  color: var(--tinta);
+}
+/* Rotulos de la ficha y de las comodidades: el gris tenue no es para texto
+   que haya que leer (ver el bloque de contraste de T12). */
+html[data-marca='leadify'] .gdf-detalle-titulo-bloque,
+html[data-marca='leadify'] .gdf-comodidad-grupo-nombre {
+  color: var(--tinta-suave);
+}
+html[data-marca='leadify'] .gdf-arriendo-foto {
+  border-radius: var(--radio-interior);
+}
+/* "Hablar con un asesor" va a 13,5-15 px: el hover general del boton
+   principal (#E03A28) es MAS CLARO que su fondo y baja el blanco a 4,37:1.
+   Al pasar el mouse se oscurece en vez de aclararse (5,8:1). Vale para
+   Compra y Arriendo. */
+html[data-marca='leadify'] .gdf-project-acciones .gdf-project-llamar:hover {
+  background: #bd3220;
+}
+
+/* ============ T11: COPY ============ */
+/* "Dirección por confirmar": la dirección que la ficha publica como
+   provisional. Discreta, al lado de la dirección y sin color de alerta. */
+.gdf-dir-confirmar {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 7px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--tinta-suave);
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+/* ============ REGISTRO DE LEADIFY (T4b, variante B "formulario limpio") ============
+   Mockup: design/formulario-rediseno/mockups/registro.html (pestaña B).
+   Solo Leadify pinta .gdf-registro; las constructoras siguen con el carné. */
+.gdf-registro {
+  align-items: center;
+  padding: 40px 22px 32px;
+  background: var(--papel);
+}
+.gdf-registro-caja {
+  width: 100%;
+  max-width: 460px;
+}
+.gdf-registro-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 30px;
+  color: var(--tinta);
+}
+.gdf-registro-logo svg {
+  display: block;
+  width: auto;
+  height: 26px;
+}
+.gdf-registro-logo span {
+  font-family: var(--fuente-titulos);
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.gdf-registro .eyebrow {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.gdf-registro h2 {
+  margin: 0 0 8px;
+  font-family: var(--fuente-titulos);
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  color: var(--tinta);
+}
+.gdf-registro-sub {
+  margin: 0 0 22px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--tinta-media);
+}
+.gdf-registro-fila {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.gdf-reg-campo {
+  min-width: 0;
+  margin-bottom: 14px;
+}
+.gdf-registro .gdf-field-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tinta);
+  margin-bottom: 6px;
+}
+.gdf-registro .gdf-input {
+  margin-bottom: 0;
+  height: 46px;
+  padding: 0 14px;
+  border-width: 1px;
+  background: var(--papel);
+  font-weight: 500;
+}
+.gdf-registro .gdf-input::placeholder {
+  color: var(--tinta-tenue);
+  font-weight: 400;
+}
+.gdf-registro .gdf-input:hover {
+  border-color: #c4cbd3;
+}
+/* Valido = navy (estado aprobado en T1); con error = rojo hondo, legible. */
+.gdf-reg-campo.valido .gdf-input {
+  border-color: var(--tinta);
+}
+.gdf-reg-campo.con-error .gdf-input {
+  border-color: var(--marca-texto);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--marca-texto) 12%, transparent);
+}
+.gdf-reg-error {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--marca-texto);
+}
+.gdf-reg-error .gdf-icono-ui {
+  flex: none;
+}
+.gdf-reg-campo.con-error .gdf-reg-error {
+  display: flex;
+}
+.gdf-registro .gdf-consent {
+  margin: 6px 0 0;
+  padding: 13px 14px;
+  background: var(--papel);
+}
+.gdf-registro .gdf-consent:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(45, 59, 78, 0.28);
+}
+.gdf-reg-campo.con-error .gdf-consent {
+  border-color: var(--marca-texto);
+}
+.gdf-registro .gdf-consent .text {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.gdf-registro .gdf-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.gdf-registro .gdf-hint {
+  font-size: 12px;
+}
+@media (max-width: 420px) {
+  .gdf-registro {
+    padding: 28px 18px 28px;
+  }
+  .gdf-registro-logo {
+    margin-bottom: 24px;
+  }
+  .gdf-registro h2 {
+    font-size: 28px;
+  }
+}
+/* Los iconos del vocabulario de amenidades (.gdf-icono) se pintan en el
+   color de marca; en los chips de estilo de vida van del color del texto. */
+.gdf-estilo-chip .gdf-icono {
+  color: inherit;
+}
+
+
+/* ---------------------------------------------------------------------------
+   "Pruébalo con tu marca" (js/demo.js): el formulario de Leadify con el nombre y el
+   logo de otra empresa. El color entra por tokens (tema.js); aquí solo lo que es forma.
+   ------------------------------------------------------------------------ */
+.gdf-registro-logo--demo {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+/* ALTURA EXPLÍCITA, no `height:auto`: un SVG con viewBox pero sin width/height (el de
+   Constructora Capital, exportado de Illustrator) no tiene medida intrínseca y, dentro de
+   una cápsula que se ajusta al contenido, se calculaba en 0x0 y no se veía. Con la altura
+   fija el ancho sale de su proporción; `contain` evita deformar uno muy ancho. */
+.gdf-registro-logo-img {
+  display: block;
+  height: 44px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+}
+/* Un logo casi blanco (el de una cabecera oscura) se apoya sobre el color de la marca. */
+.gdf-registro-logo--demo.sobre-marca {
+  width: fit-content;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--marca);
+}
+.gdf-registro-logo--demo .gdf-logo-texto {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--tinta);
+}
+.gdf-registro-logo--demo.sobre-marca .gdf-logo-texto {
+  color: var(--sobre-marca);
+}
+.gdf-demo-badge {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: calc(100vw - 24px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #2d3b4e;
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+  opacity: 0.92;
+  box-shadow: 0 6px 18px rgba(45, 59, 78, 0.25);
+  pointer-events: none;
+}
+.gdf-demo-nota {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--papel-2);
+  color: var(--tinta-media);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* En una demo, TODO texto que usaba el color de marca pasa al tono oscurecido hasta
+   cumplir el contraste (tema.js: --marca-texto). Con el rojo de Leadify no hacía falta; con
+   un amarillo o un verde claro, sí. */
+html[data-demo='1'] .gdf-hero-pill,
+html[data-demo='1'] .gdf-hero-main h1,
+html[data-demo='1'] .gdf-hero-lead strong,
+html[data-demo='1'] .gdf-hero-badge,
+html[data-demo='1'] .gdf-escarapela .kicker .eyebrow,
+html[data-demo='1'] .gdf-compat-row,
+html[data-demo='1'] .gdf-multi-opt.selected,
+html[data-demo='1'] .gdf-zona-eco strong,
+html[data-demo='1'] .gdf-mapa-real .leaflet-control-zoom a:hover,
+html[data-demo='1'] .gdf-entorno-chip,
+html[data-demo='1'] .gdf-entorno-chip-x,
+html[data-demo='1'] .gdf-result-head .eyebrow,
+html[data-demo='1'] .gdf-lead-note,
+html[data-demo='1'] .gdf-chip,
+html[data-demo='1'] .gdf-chip.hi,
+html[data-demo='1'] .gdf-project-precio strong,
+html[data-demo='1'] .gdf-project-entorno.destacado .gdf-entorno-titulo,
+html[data-demo='1'] .gdf-amenity svg,
+html[data-demo='1'] .gdf-amenity.coincide .gdf-amenity-label,
+html[data-demo='1'] .gdf-amenity-punto,
+html[data-demo='1'] .gdf-icono,
+html[data-demo='1'] .gdf-project-ficha,
+html[data-demo='1'] .gdf-tour360-texto,
+html[data-demo='1'] .gdf-tour360-flecha,
+html[data-demo='1'] .gdf-btn-secundario:hover,
+html[data-demo='1'] .gdf-project-detalle > summary,
+html[data-demo='1'] .gdf-tipo-tab:hover,
+html[data-demo='1'] .gdf-espacio-punto,
+html[data-demo='1'] .gdf-confirm-proyecto-precio,
+html[data-demo='1'] .gdf-confirm-contacto-tel,
+html[data-demo='1'] .gdf-restart-btn,
+html[data-demo='1'] .gdf-project-aviso::before {
+  color: var(--marca-texto);
+}
+
+/* En una demo la marca NUNCA decide el color de un error: con un verde o un azul, un campo
+   inválido no se leería como error. Rojo fijo, con contraste sobre blanco de 5,6:1. */
+html[data-demo='1'] .gdf-reg-campo.con-error .gdf-input {
+  border-color: #c62828;
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.12);
+}
+html[data-demo='1'] .gdf-reg-campo.con-error .gdf-consent { border-color: #c62828; }
+html[data-demo='1'] .gdf-reg-error,
+html[data-demo='1'] .gdf-lead-submit.error { color: #b3261e; }
+html[data-demo='1'] .gdf-reco-aviso.error {
+  border-color: #c62828;
+  background: #fdecea;
+}
+html[data-demo='1'] .gdf-confirm-hero--error { border-color: #c62828; }
+html[data-demo='1'] .gdf-confirm-check.err {
+  background: #c62828;
+  box-shadow: 0 10px 24px rgba(198, 40, 40, 0.25);
+}
+html[data-demo='1'] .gdf-confirm-llamada--error {
+  border-color: #c62828;
+  background: #fdecea;
+  color: #b3261e;
+}
+
+/* -------------------------------------------------------------------------
+   Hoja "Antes de llamarte" (templates.js, permisoLlamada): permiso para compartir
+   los datos con la empresa dueña del proyecto antes de que Manuela llame
+   (design/crm/CONSENTIMIENTO.md). Modal en escritorio, hoja inferior en celular.
+   Usa los tokens del tema: se ve bien en Leadify y en cada marca.
+   ------------------------------------------------------------------------- */
+.gdf-consent .text a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.gdf-permiso {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(10, 14, 20, 0.55);
+  animation: visorEntra 0.18s ease-out;
+}
+.gdf-permiso-hoja {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  background: var(--papel);
+  color: var(--tinta);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.gdf-permiso-hoja h2 {
+  margin: 0 0 8px;
+  font-family: var(--fuente-titulos);
+  font-size: 21px;
+}
+.gdf-permiso-hoja p {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--tinta-media);
+}
+.gdf-permiso-hoja p b,
+.gdf-permiso-casilla b {
+  color: var(--tinta);
+}
+.gdf-permiso-casilla {
+  margin-bottom: 16px;
+}
+.gdf-permiso-hoja .gdf-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.gdf-permiso-casilla .text {
+  font-size: 13.5px;
+}
+.gdf-permiso-casilla:focus-visible {
+  outline: 3px solid var(--marca);
+  outline-offset: 2px;
+}
+.gdf-permiso-no {
+  display: block;
+  margin: 12px auto 0;
+  padding: 6px 10px;
+  background: none;
+  border: 0;
+  color: var(--tinta);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+@media (max-width: 640px) {
+  .gdf-permiso {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .gdf-permiso-hoja {
+    max-width: none;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gdf-permiso { animation: none; }
+}
+
+/* Aviso de demostración en los formularios con la marca de una empresa sin acuerdo (templates.js,
+   bandaDemoMarca). Va arriba, sobre todo, en todas las pantallas. */
+.gdf-banda-demo {
+  position: sticky;
+  top: 0;
+  z-index: 96;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #2d3b4e;
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+.gdf-banda-demo b {
+  font-weight: 700;
+}
+.gdf-banda-demo svg {
+  flex: none;
+}
+/* #root es una fila flex: con el aviso pasa a columna (si no, el aviso queda como una columna a la izquierda) y el
+   shell ocupa el alto que queda. Con #root en el selector le gana a todas las reglas de alto de .gdf-shell. */
+#root:has(> .gdf-banda-demo) {
+  flex-direction: column;
+}
+#root:has(> .gdf-banda-demo) > .gdf-shell {
+  flex: 1 0 auto;
+  min-height: 0;
+}
+/* Pantallas con escena (y escritorio, que fija #root a 100vh): alto acotado, como sin aviso. */
+#root:has(> .gdf-banda-demo):has(.gdf-scene) {
+  height: 100vh;
+  height: 100dvh;
+}
+#root:has(> .gdf-banda-demo):has(.gdf-scene) > .gdf-shell {
+  flex: 1 1 0;
+  height: auto;
+}
+@media (min-width: 900px) {
+  #root:has(> .gdf-banda-demo) > .gdf-shell {
+    flex: 1 1 0;
+    height: auto;
+  }
+}
+@media (max-width: 600px) {
+  .gdf-banda-demo {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
 }

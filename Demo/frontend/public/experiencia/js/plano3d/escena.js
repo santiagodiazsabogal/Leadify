@@ -22,20 +22,30 @@
   var MARGEN = 1.22;
   var GROSOR_BASE = 0.25;
   var HUNDIR_BASE = 0.02;   // la base y los pisos no pueden compartir y=0
+  var MARGEN_OBRA = 1.1;    // losa del replanteo alrededor de la huella
 
   var ENTRADA = 0.7;        // lo que tarda una pieza en llegar a su sitio
   var SALIDA = 0.3;         // igual que `retirarPieza` de la anfitriona
   var DESFASE = 0.9;        // reparto total del escalonado entre las piezas
-  var SEPARACION = 1.1;     // desde que distancia entra, en metros
-  var ELEVA = 0.8;
+  var ALTURA_CAIDA = 5;     // desde que altura cae una pieza, en metros
 
   function suave(t) { return 1 - Math.pow(1 - t, 3); }
   function n2(v) { return (Math.round(v * 100) / 100).toFixed(2); }
 
+  // Tope de la vista cenital, no 90 exactos: en 90 la dirección de cámara
+  // queda vertical y `derecha = frente × arriba` da un vector nulo (gimbal
+  // lock) que `encuadrar()` no puede normalizar.
+  var ELEVACION_CENITAL = 89.5;
+
+  // Con el entorno a la vista la camara encuadra el disco del barrio, no la
+  // casa. Margen mas justo que el de la casa: el borde del disco ya es aire.
+  var MARGEN_ENTORNO = 1.1;
+  var DUR_CAM_ENTORNO = 1.3;   // alejarse o volver, en segundos
+
   function crearEscena(opciones) {
     var o = opciones || {};
-    var ELEVACION = THREE.MathUtils.degToRad(o.elevacion || ELEVACION_DEF);
-    var AZIMUT = THREE.MathUtils.degToRad(o.azimut === undefined ? AZIMUT_DEF : o.azimut);
+    var elevacionGrados = o.elevacion || ELEVACION_DEF;
+    var azimutGrados = o.azimut === undefined ? AZIMUT_DEF : o.azimut;
     var animar = o.animar !== false;
 
     var renderer = new THREE.WebGLRenderer({ antialias: o.antialias !== false, alpha: true });
@@ -56,7 +66,9 @@
        suelo abajo, que es justo la variacion que se pierde. */
     scene.add(new THREE.HemisphereLight(0xf2f6f8, 0x8d8579, 1.35));
     var sol = new THREE.DirectionalLight(0xffffff, 1.1);
-    sol.position.set(7, 14, 5);
+    var SOL_DESDE = [7, 14, 5];
+    sol.position.set(SOL_DESDE[0], SOL_DESDE[1], SOL_DESDE[2]);
+    scene.add(sol.target);
     if (o.sombras !== false) {
       sol.castShadow = true;
       sol.shadow.mapSize.set(o.mapaSombra || 1024, o.mapaSombra || 1024);
@@ -82,6 +94,20 @@
     var nodos = {};          // clave -> {grupo, anim}
     var baseNodo = null;
 
+    // Animacion puntual de cierre: sube la camara a vista cenital una sola vez.
+    var vistaFinal = null;
+
+    /* Entorno (barrio + amenidades, ver entorno.js). Sus piezas van en su
+       propio mapa: `aplicarPlan` retira todo lo que no esta en el plano, y el
+       entorno no esta en el plano. `fEnt` (0..1) mezcla el encuadre de la
+       casa con el del barrio; `camEnt` lo anima. */
+    var nodosEntorno = {};
+    var entornoPedido = null, layoutEnt = null, asignacion = null;
+    var fEnt = 0, camEnt = null;
+    // Vistazo al barrio: tras alejarse, la camara lo muestra PAUSA_ENTORNO y
+    // vuelve sola a la casa. El barrio se queda; lo que va y vuelve es la camara.
+    var PAUSA_ENTORNO = 2000, volverTras = false, temporizadorEnt = null;
+
     /* ---------- bucle ---------- */
 
     function pedirCuadro() {
@@ -102,28 +128,311 @@
          calculado contra eso deja la vivienda descentrada y recortada. */
       if (edad < 0.6) { edad += dt; encuadrar(); sigue = true; }
       if (avanzar(dt)) sigue = true;
+      if (avanzarVistaFinal(dt)) sigue = true;
+      if (avanzarCamEntorno(dt)) sigue = true;
+      if (avanzarRegreso(dt)) sigue = true;
 
       renderer.render(scene, camera);
       if (sigue) pedirCuadro();
     }
 
+    // Sube la camara a vista cenital una sola vez y avisa al terminar. `dt` en
+    // vez de leer el reloj de nuevo: mismo paso que ya calculo `cuadro`.
+    function avanzarVistaFinal(dt) {
+      if (!vistaFinal) return false;
+      vistaFinal.t += dt;
+      var p = Math.min(1, vistaFinal.t / vistaFinal.dur);
+      elevacionGrados = vistaFinal.desde + (vistaFinal.hasta - vistaFinal.desde) * suave(p);
+      encuadrar();
+      if (p >= 1) {
+        var cb = vistaFinal.cb;
+        vistaFinal = null;
+        if (cb) cb();
+        return false;
+      }
+      return true;
+    }
+
+    // Alejarse al barrio o volver a la casa.
+    function avanzarCamEntorno(dt) {
+      if (!camEnt) return false;
+      camEnt.t += dt;
+      var p = Math.min(1, camEnt.t / DUR_CAM_ENTORNO);
+      fEnt = camEnt.desde + (camEnt.hasta - camEnt.desde) * suave(p);
+      encuadrar();
+      if (p >= 1) {
+        var llego = camEnt.hasta;
+        camEnt = null;
+        if (llego === 1 && volverTras) programarVuelta();
+        return false;
+      }
+      return true;
+    }
+
+    function irAEntorno(hasta) {
+      if (camEnt ? camEnt.hasta === hasta : fEnt === hasta) return;
+      if (animar) camEnt = { t: 0, desde: fEnt, hasta: hasta };
+      else { camEnt = null; fEnt = hasta; encuadrar(); }
+      pedirCuadro();
+    }
+
+    function cancelarVistazo() {
+      volverTras = false;
+      if (temporizadorEnt) { clearTimeout(temporizadorEnt); temporizadorEnt = null; }
+    }
+
+    // Reloj de pared y no `dt`: `dt` se capa por cuadro, y en un equipo lento
+    // la pausa se estiraria.
+    function programarVuelta() {
+      if (temporizadorEnt) clearTimeout(temporizadorEnt);
+      temporizadorEnt = setTimeout(function () {
+        temporizadorEnt = null;
+        volverTras = false;
+        irAEntorno(0);
+      }, PAUSA_ENTORNO);
+    }
+
+    /* Alejarse, mostrar el barrio y volver. Cada chip nuevo lo relanza: si la
+       camara ya esta afuera, solo reinicia la pausa, para que se alcance a
+       ver caer la amenidad recien elegida. */
+    function vistazoEntorno() {
+      volverTras = true;
+      if (fEnt === 1 && !camEnt) programarVuelta();
+      else {
+        if (temporizadorEnt) { clearTimeout(temporizadorEnt); temporizadorEnt = null; }
+        irAEntorno(1);
+      }
+    }
+
+    /* La lista de amenidades elegidas (valores de `entorno_deseado`), o null
+       si el entorno no toca todavia. Una lista vacia tambien vale: la
+       pregunta es opcional y contestarla sin elegir nada igual pone el
+       barrio. Quien decide cuando hay entorno es la anfitriona (index.js).
+       Vistazo (alejarse, mostrar, volver): con cada chip (`mostrar`) y
+       tambien cada vez que el barrio APARECE, aunque sea sin amenidades —
+       contestar la pregunta sin elegir nada ponia el barrio sin que la camara
+       lo mostrara, y se leia como que la animacion se habia perdido.
+       `mostrar === false` lo apaga (banco de pruebas con `&fijo=1`). */
+    function fijarEntorno(lista, mostrar) {
+      var aparece = !entornoPedido && !!lista;
+      entornoPedido = lista ? lista.slice() : null;
+      sincronizarEntorno();
+      if (!entornoPedido) { cancelarVistazo(); irAEntorno(0); }
+      else if (mostrar || (aparece && mostrar !== false)) vistazoEntorno();
+    }
+
+    function sincronizarEntorno() {
+      if (!planActual || !G.entorno) return;
+      var M = G.materiales();
+      var deseadas = [];
+      if (entornoPedido) {
+        var lay = G.entorno.disponer(planActual);
+        if (!layoutEnt || layoutEnt.clave !== lay.clave) asignacion = null;
+        layoutEnt = lay;
+        var asig = G.entorno.asignar(lay, entornoPedido, asignacion && asignacion.celdas);
+        asignacion = asig;
+        deseadas = G.entorno.piezas(lay, asig, M);
+      }
+
+      var vistas = {};
+      var baseNueva = !Object.keys(nodosEntorno).some(function (c) {
+        return c.indexOf('entorno|base|') === 0 && !(nodosEntorno[c].anim && nodosEntorno[c].anim.saliendo);
+      });
+      var nRel = 0, nAm = 0;
+      deseadas.forEach(function (pz) {
+        vistas[pz.clave] = true;
+        var previo = nodosEntorno[pz.clave];
+        if (previo) {
+          if (previo.anim && previo.anim.saliendo) {
+            previo.anim = animar
+              ? { t: 0, retraso: 0, dur: ENTRADA, saliendo: false, crece: previo.anim.crece }
+              : null;
+            if (!animar) { previo.grupo.position.set(0, 0, 0); previo.grupo.scale.set(1, 1, 1); }
+          }
+          return;
+        }
+        var grupo = pz.crear();
+        var cont = new THREE.Group();
+        cont.add(grupo);
+        raiz.add(cont);
+        var n = { grupo: cont, anim: null };
+        nodosEntorno[pz.clave] = n;
+        if (!animar) return;
+        /* El barrio BROTA del suelo mientras la camara se aleja; el relleno y
+           las amenidades caen despues, como las piezas de la casa. Si el
+           barrio ya estaba, la amenidad nueva cae de una. */
+        var espera = baseNueva ? 0.45 : 0;
+        if (pz.clase === 'base') n.anim = { t: 0, retraso: 0, dur: 0.9, saliendo: false, crece: true };
+        else if (pz.clase === 'rel') n.anim = { t: 0, retraso: espera + 0.05 * nRel++, dur: ENTRADA, saliendo: false };
+        else n.anim = { t: 0, retraso: espera + 0.3 + 0.12 * nAm++, dur: ENTRADA, saliendo: false };
+        cont.visible = false;
+        if (pz.clase === 'base') cont.scale.set(1, 0.001, 1);
+        else cont.position.set(0, ALTURA_CAIDA, 0);
+      });
+
+      Object.keys(nodosEntorno).forEach(function (clave) {
+        var n = nodosEntorno[clave];
+        if (vistas[clave] || (n.anim && n.anim.saliendo)) return;
+        if (!animar) { soltar(n.grupo); delete nodosEntorno[clave]; return; }
+        n.anim = {
+          t: 0, retraso: 0, dur: clave.indexOf('entorno|base|') === 0 ? 0.6 : SALIDA,
+          saliendo: true, crece: clave.indexOf('entorno|base|') === 0
+        };
+      });
+
+      // El sol sigue al barrio: su camara de sombras es de 24 m y sin esto
+      // la mitad del disco queda sin sombra si la casa no esta en el origen.
+      var c = layoutEnt && entornoPedido ? [layoutEnt.cx, layoutEnt.cz] : (caja ? [caja.center[0], caja.center[2]] : [0, 0]);
+      sol.target.position.set(c[0], 0, c[1]);
+      sol.position.set(c[0] + SOL_DESDE[0], SOL_DESDE[1], c[1] + SOL_DESDE[2]);
+      if (sol.castShadow) {
+        var r = layoutEnt && entornoPedido ? layoutEnt.R + 1 : 12;
+        var cs = sol.shadow.camera;
+        cs.left = -r; cs.right = r; cs.top = r; cs.bottom = -r;
+        cs.updateProjectionMatrix();
+      }
+
+      pedirCuadro();
+    }
+
+    // Sube la camara a vista cenital una sola vez; `cb` avisa cuando termina
+    // (la anfitriona lo usa para recien ahi saltar a la pantalla de resultados).
+    function finalizarVistaSuperior(duracionMs, cb) {
+      // Un regreso pendiente de la orbita pelearia con esta animacion.
+      cancelarOrbita();
+      vistaFinal = {
+        t: 0, dur: (duracionMs || 900) / 1000,
+        desde: elevacionGrados, hasta: ELEVACION_CENITAL, cb: cb
+      };
+      pedirCuadro();
+    }
+
+    // Vuelve la camara al reposo de siempre. Hace falta porque `elevacionGrados`
+    // es estado de MODULO: sin este reset, "Empezar de nuevo" heredaria la
+    // vista cenital del intento anterior.
+    function resetCamara() {
+      vistaFinal = null;
+      cancelarOrbita();
+      cancelarVistazo();
+      camEnt = null;
+      fEnt = 0;
+      elevacionGrados = o.elevacion || ELEVACION_DEF;
+      azimutGrados = o.azimut === undefined ? AZIMUT_DEF : o.azimut;
+      if (caja) encuadrar();
+      pedirCuadro();
+    }
+
+    /* ---------- orbita libre ----------
+       Arrastrar gira la camara alrededor del plano (azimut libre, 360) y la
+       inclina; a los ESPERA_REGRESO sin tocarla vuelve sola a la pose de
+       reposo. El reposo se captura al empezar a arrastrar, no es fijo: tras
+       `finalizarVistaSuperior` la pose de reposo es la cenital, y volver a 58
+       grados ahi desharia el cierre del quiz. La distancia la sigue poniendo
+       `encuadrar()`, asi que la casa entra completa desde cualquier angulo. */
+
+    var ESPERA_REGRESO = 3000, DUR_REGRESO = 0.9;
+    var GRADOS_POR_PX = 0.4, ELEV_MIN = 15;
+    var orbita = null, reposo = null, regreso = null, temporizador = null;
+
+    function cancelarOrbita() {
+      orbita = null; reposo = null; regreso = null;
+      if (temporizador) { clearTimeout(temporizador); temporizador = null; }
+    }
+
+    // Azimut por el camino corto: de 350 a 10 son 20 grados, no 340.
+    function difAngulo(desde, hasta) {
+      var d = (hasta - desde) % 360;
+      if (d > 180) d -= 360;
+      if (d < -180) d += 360;
+      return d;
+    }
+
+    function avanzarRegreso(dt) {
+      if (!regreso) return false;
+      regreso.t += dt;
+      var p = Math.min(1, regreso.t / DUR_REGRESO), k = suave(p);
+      azimutGrados = regreso.az + regreso.dAz * k;
+      elevacionGrados = regreso.el + (reposo.el - regreso.el) * k;
+      encuadrar();
+      if (p >= 1) { regreso = null; reposo = null; return false; }
+      return true;
+    }
+
+    function alPresionar(e) {
+      // Durante el cierre del quiz la camara ya tiene duenio.
+      if (vistaFinal || !caja) return;
+      if (!reposo) reposo = { az: azimutGrados, el: elevacionGrados };
+      regreso = null;
+      if (temporizador) { clearTimeout(temporizador); temporizador = null; }
+      orbita = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      try { lienzo.setPointerCapture(e.pointerId); } catch (err) { /* sin captura igual funciona */ }
+      lienzo.style.cursor = 'grabbing';
+    }
+
+    function alMover(e) {
+      if (!orbita || e.pointerId !== orbita.id) return;
+      var dx = e.clientX - orbita.x, dy = e.clientY - orbita.y;
+      orbita.x = e.clientX; orbita.y = e.clientY;
+      azimutGrados = (azimutGrados - dx * GRADOS_POR_PX) % 360;
+      elevacionGrados = Math.max(ELEV_MIN, Math.min(ELEVACION_CENITAL, elevacionGrados + dy * GRADOS_POR_PX));
+      encuadrar();
+      pedirCuadro();
+    }
+
+    function alSoltar(e) {
+      if (!orbita || e.pointerId !== orbita.id) return;
+      orbita = null;
+      lienzo.style.cursor = 'grab';
+      temporizador = setTimeout(function () {
+        temporizador = null;
+        if (!reposo || orbita || vistaFinal) return;
+        regreso = {
+          t: 0, az: azimutGrados, el: elevacionGrados,
+          dAz: difAngulo(azimutGrados, reposo.az)
+        };
+        pedirCuadro();
+      }, ESPERA_REGRESO);
+    }
+
+    // Sin esto, en movil el arrastre sobre el lienzo desplaza la pagina en vez
+    // de girar la casa. En movil la escena va clavada arriba y lo que scrollea
+    // es el panel de abajo, asi que no se pierde nada.
+    lienzo.style.touchAction = 'none';
+    lienzo.style.cursor = 'grab';
+    lienzo.addEventListener('pointerdown', alPresionar);
+    lienzo.addEventListener('pointermove', alMover);
+    lienzo.addEventListener('pointerup', alSoltar);
+    lienzo.addEventListener('pointercancel', alSoltar);
+
     function avanzar(dt) {
+      var a = avanzarMapa(nodos, dt);
+      var b = avanzarMapa(nodosEntorno, dt);
+      return a || b;
+    }
+
+    function avanzarMapa(mapa, dt) {
       var activo = false;
-      Object.keys(nodos).forEach(function (clave) {
-        var n = nodos[clave], a = n.anim;
+      Object.keys(mapa).forEach(function (clave) {
+        var n = mapa[clave], a = n.anim;
         if (!a) return;
         a.t += dt;
         var p = Math.min(1, Math.max(0, (a.t - a.retraso) / a.dur));
         if (a.t < a.retraso) { activo = true; return; }
 
-        var k = a.saliendo ? 1 - suave(p) : suave(p);
-        var resto = 1 - k;
-        n.grupo.position.set(a.dx * SEPARACION * resto, ELEVA * resto, a.dz * SEPARACION * resto);
+        if (a.crece) {
+          // El barrio brota del suelo (y se hunde al irse) en vez de caer:
+          // un disco de 20 m cayendo de 5 m se lee como un golpe.
+          n.grupo.scale.set(1, Math.max(0.001, a.saliendo ? 1 - suave(p) : suave(p)), 1);
+        } else {
+          // Entra CAYENDO (acelera, como gravedad) y sale SUBIENDO (frena).
+          var altura = a.saliendo ? suave(p) : 1 - p * p;
+          n.grupo.position.set(0, ALTURA_CAIDA * altura, 0);
+        }
         n.grupo.visible = true;
 
         if (p >= 1) {
           n.anim = null;
-          if (a.saliendo) { soltar(n.grupo); delete nodos[clave]; }
+          if (a.saliendo) { soltar(n.grupo); delete mapa[clave]; }
         } else activo = true;
       });
       return activo;
@@ -155,8 +464,24 @@
        esta orientacion. Interpolar entre dos distancias correctas en los
        extremos no sirve: a mitad de camino la inclinacion mete la altura de los
        muros en pantalla y la vivienda se sale del cuadro. */
+    function distanciaPara(puntos, margen) {
+      var tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      var tanH = tanV * camera.aspect;
+      var dist = 0;
+      for (var i = 0; i < puntos.length; i++) {
+        esquina.set(puntos[i][0], puntos[i][1], puntos[i][2]);
+        var a = esquina.dot(dir);
+        var h = Math.abs(esquina.dot(derecha)) / tanH;
+        var v = Math.abs(esquina.dot(arriba)) / tanV;
+        dist = Math.max(dist, a + Math.max(h, v) * margen);
+      }
+      return dist;
+    }
+
     function encuadrar() {
       if (!caja) return;
+      var ELEVACION = THREE.MathUtils.degToRad(elevacionGrados);
+      var AZIMUT = THREE.MathUtils.degToRad(azimutGrados);
       objetivo.set(caja.center[0], caja.center[1], caja.center[2]);
       dir.set(
         Math.cos(ELEVACION) * Math.sin(AZIMUT),
@@ -167,15 +492,20 @@
       derecha.crossVectors(frente, ARRIBA).normalize();
       arriba.crossVectors(derecha, frente);
 
-      var tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-      var tanH = tanV * camera.aspect;
-      var dist = 0;
-      for (var i = 0; i < esquinasCaja.length; i++) {
-        esquina.set(esquinasCaja[i][0], esquinasCaja[i][1], esquinasCaja[i][2]);
-        var a = esquina.dot(dir);
-        var h = Math.abs(esquina.dot(derecha)) / tanH;
-        var v = Math.abs(esquina.dot(arriba)) / tanV;
-        dist = Math.max(dist, a + Math.max(h, v) * MARGEN);
+      var dist = distanciaPara(esquinasCaja, MARGEN);
+      /* Con el entorno: se mezcla hacia el encuadre del disco del barrio
+         (centro y distancia), calculado igual, por puntos contra el frustum.
+         Mezclar los dos resultados y no estirar uno: el centro del barrio no
+         es el de la casa, y estirar la distancia dejaria el disco corrido. */
+      if (fEnt > 0 && layoutEnt) {
+        var k = fEnt;
+        var dEnt = distanciaPara(layoutEnt.puntos, MARGEN_ENTORNO);
+        objetivo.set(
+          objetivo.x + (layoutEnt.cx - objetivo.x) * k,
+          objetivo.y * (1 - k),
+          objetivo.z + (layoutEnt.cz - objetivo.z) * k
+        );
+        dist += (dEnt - dist) * k;
       }
       camera.position.copy(objetivo).addScaledVector(dir, dist);
       camera.lookAt(objetivo);
@@ -215,7 +545,10 @@
         var xs = r.polygon.map(function (p) { return p[0]; });
         var zs = r.polygon.map(function (p) { return p[1]; });
         out.push({
-          clave: 'piso|' + r.id + '|' + r.polygon.map(function (p) { return n2(p[0]) + ',' + n2(p[1]); }).join(';'),
+          // El acabado va en la clave: al contestar los ingresos el piso se
+          // vuelve a colocar con el material nuevo, no se queda el anterior.
+          clave: 'piso|' + r.id + '|' + (r.floor || 'wood') + '|' +
+            r.polygon.map(function (p) { return n2(p[0]) + ',' + n2(p[1]); }).join(';'),
           grupo: g, ambiente: r.id,
           centro: [(Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2,
                    (Math.min.apply(null, zs) + Math.max.apply(null, zs)) / 2]
@@ -290,6 +623,19 @@
         });
       });
 
+      /* Antes de la primera respuesta la losa no esta vacia: lleva el
+         replanteo de obra (entorno.js). Son piezas del plano como cualquier
+         otra, asi que caen al entrar y salen solas en cuanto hay ambientes. */
+      if (!plan.rooms.length && G.obra && caja) {
+        var hx = caja.halfExtents[0] + MARGEN_OBRA, hz = caja.halfExtents[2] + MARGEN_OBRA;
+        G.obra(plan, {
+          x0: caja.center[0] - hx, x1: caja.center[0] + hx,
+          z0: caja.center[2] - hz, z1: caja.center[2] + hz
+        }).forEach(function (p) {
+          out.push({ clave: p.clave, grupo: p.grupo, ambiente: p.ambiente, centro: [caja.center[0], caja.center[2]] });
+        });
+      }
+
       return out;
     }
 
@@ -353,41 +699,43 @@
 
       caja = G.cajaDelPlano(plan);
       esquinasCaja = G.esquinas(caja);
-
-      // La losa no se anima: es el lote, existe antes que la vivienda.
-      if (baseNodo) { soltar(baseNodo); baseNodo = null; }
-
-      /* Un plano VACIO no lleva losa. Pasa en el paso de ubicacion, que no
-         construye nada, y al volver atras hasta el: sin este corte la losa se
-         dimensionaria contra una caja de tamano cero y quedaria un cuadrado
-         gris de 1 m flotando solo, que se lee peor que no mostrar nada. El
-         resto de la funcion ya deja la escena vacia por si misma, porque el
-         diff no encuentra ninguna pieza y retira las que hubiera. */
-      if (plan.walls.length) {
-        baseNodo = new THREE.Mesh(
-          new THREE.BoxGeometry(
-            (caja.halfExtents[0] + 0.5) * 2, GROSOR_BASE, (caja.halfExtents[2] + 0.5) * 2
-          ), M.base
-        );
-        baseNodo.position.set(caja.center[0], -GROSOR_BASE / 2 - HUNDIR_BASE, caja.center[2]);
-        baseNodo.receiveShadow = true;
-        raiz.add(baseNodo);
-
-        /* Losa de obra sobre TODA la huella. El cascaron se dimensiona para el
-           programa completo desde la primera respuesta, pero los ambientes
-           aparecen de a poco: sin esto queda un vacio gris enorme dentro de los
-           muros y se lee como que el piso no cargo. Va apenas debajo del nivel
-           de los pisos de ambiente, que se van montando encima. */
-        var obra = new THREE.Mesh(
-          new THREE.BoxGeometry(caja.halfExtents[0] * 2, 0.02, caja.halfExtents[2] * 2), M.obra
-        );
-        // Hija de la losa del lote, asi que se va con ella al cambiar de plano.
-        // Su Y es relativa: queda justo debajo del nivel de los pisos de
-        // ambiente.
-        obra.position.set(0, GROSOR_BASE / 2 + HUNDIR_BASE - 0.015, 0);
-        obra.receiveShadow = true;
-        baseNodo.add(obra);
+      // Sin ambientes la losa es la del replanteo, mas ancha que la huella:
+      // se encuadra ELLA, o la cinta del borde queda cortada.
+      if (!plan.rooms.length) {
+        esquinasCaja = G.esquinas({
+          center: caja.center,
+          halfExtents: [caja.halfExtents[0] + MARGEN_OBRA, 0.5, caja.halfExtents[2] + MARGEN_OBRA]
+        });
       }
+
+      /* La losa no se anima: es el lote, existe antes que la vivienda. Pero
+         tiene el tamano de lo construido EN ESTA PREGUNTA, con la forma de los
+         ambientes ya revelados (mas un margen), no el rectangulo del plano
+         completo: una placa del tamano de todo el apartamento cuando solo
+         existe la sala se lee como un vacio enorme. En el paso 0 no hay
+         ambientes, y ahi si va el lote completo para que la escena no arranque
+         en blanco. Todo en una geometria: una sola llamada de dibujo.
+
+         Ya no hay losa de obra encima: existia para tapar lo que el cascaron
+         encerraba sin ambiente todavia, y el cascaron ahora crece con lo
+         revelado. Todo lo que queda dentro de los muros tiene su propio piso. */
+      if (baseNodo) soltar(baseNodo);
+      var s = plan.scale || 1, MARGEN_LOTE = 0.5;
+      var cajasLote = plan.rooms.map(function (r) {
+        var xs = r.polygon.map(function (p) { return p[0] * s; });
+        var zs = r.polygon.map(function (p) { return p[1] * s; });
+        var x0 = Math.min.apply(null, xs) - MARGEN_LOTE, x1 = Math.max.apply(null, xs) + MARGEN_LOTE;
+        var z0 = Math.min.apply(null, zs) - MARGEN_LOTE, z1 = Math.max.apply(null, zs) + MARGEN_LOTE;
+        return [x1 - x0, GROSOR_BASE, z1 - z0, (x0 + x1) / 2 - caja.center[0], 0, (z0 + z1) / 2 - caja.center[2]];
+      });
+      if (!cajasLote.length) {
+        // Mas margen que el de lo construido: ahi va la cinta y el material.
+        cajasLote = [[(caja.halfExtents[0] + MARGEN_OBRA) * 2, GROSOR_BASE, (caja.halfExtents[2] + MARGEN_OBRA) * 2, 0, 0, 0]];
+      }
+      baseNodo = new THREE.Mesh(G.unirCajas(cajasLote), M.base);
+      baseNodo.position.set(caja.center[0], -GROSOR_BASE / 2 - HUNDIR_BASE, caja.center[2]);
+      baseNodo.receiveShadow = true;
+      raiz.add(baseNodo);
 
       var nuevas = piezasDe(plan);
       var vistas = {};
@@ -403,10 +751,7 @@
              venir rapido por el formulario: sin esto la escena se vacia. */
           if (previo.anim && previo.anim.saliendo) {
             if (conAnim) {
-              var dv = direccion(previo.centro);
-              previo.anim = {
-                t: 0, retraso: 0, dur: ENTRADA, saliendo: false, dx: dv[0], dz: dv[1]
-              };
+              previo.anim = { t: 0, retraso: 0, dur: ENTRADA, saliendo: false };
             } else {
               previo.anim = null;
               previo.grupo.position.set(0, 0, 0);
@@ -426,10 +771,7 @@
         if (vistas[clave] || (nodos[clave].anim && nodos[clave].anim.saliendo)) return;
         var n = nodos[clave];
         if (!conAnim) { soltar(n.grupo); delete nodos[clave]; return; }
-        n.anim = {
-          t: 0, retraso: 0, dur: SALIDA, saliendo: true,
-          dx: direccion(n.centro)[0], dz: direccion(n.centro)[1]
-        };
+        n.anim = { t: 0, retraso: 0, dur: SALIDA, saliendo: true };
       });
 
       if (conAnim && entrantes.length) {
@@ -442,28 +784,25 @@
           if (porAmbiente[k] === undefined) porAmbiente[k] = orden++;
         });
         entrantes.forEach(function (pieza) {
-          var d = direccion(pieza.centro);
           var n = nodos[pieza.clave];
           n.anim = {
             t: 0, retraso: porAmbiente[pieza.ambiente || '_'] * paso, dur: ENTRADA,
-            saliendo: false, dx: d[0], dz: d[1]
+            saliendo: false
           };
-          pieza.grupo.position.set(d[0] * SEPARACION, ELEVA, d[1] * SEPARACION);
+          // Oculta hasta que le toca: a 5 m de altura, esperando su turno
+          // flotaria a la vista.
+          pieza.grupo.visible = false;
+          pieza.grupo.position.set(0, ALTURA_CAIDA, 0);
         });
       }
+
+      // El entorno depende de la huella y de la puerta de entrada: se
+      // re-sincroniza con cada plano, pero solo cambia si cambian ellas.
+      sincronizarEntorno();
 
       edad = 0;
       encuadrar();
       pedirCuadro();
-    }
-
-    // Direccion desde el centro del plano hacia la pieza: es por donde entra y
-    // por donde se va.
-    function direccion(centro) {
-      if (!centro || !caja) return [0, 0];
-      var dx = centro[0] - caja.center[0], dz = centro[1] - caja.center[2];
-      var l = Math.hypot(dx, dz) || 1;
-      return [dx / l, dz / l];
     }
 
     /* ---------- montaje ---------- */
@@ -484,9 +823,16 @@
 
     function dispose() {
       vivo = false;
+      cancelarOrbita();
+      cancelarVistazo();
+      lienzo.removeEventListener('pointerdown', alPresionar);
+      lienzo.removeEventListener('pointermove', alMover);
+      lienzo.removeEventListener('pointerup', alSoltar);
+      lienzo.removeEventListener('pointercancel', alSoltar);
       if (ro) ro.disconnect();
       Object.keys(nodos).forEach(function (c) { soltar(nodos[c].grupo); delete nodos[c]; });
       if (baseNodo) soltar(baseNodo);
+      Object.keys(nodosEntorno).forEach(function (c) { soltar(nodosEntorno[c].grupo); delete nodosEntorno[c]; });
       renderer.dispose();
       if (lienzo.parentNode) lienzo.parentNode.removeChild(lienzo);
     }
@@ -494,9 +840,17 @@
     return {
       montar: montar, aplicarPlan: aplicarPlan, encuadrar: encuadrar,
       pedirCuadro: pedirCuadro, dispose: dispose,
+      fijarEntorno: fijarEntorno, finalizarVistaSuperior: finalizarVistaSuperior,
+      resetCamara: resetCamara,
       canvas: lienzo, renderer: renderer, scene: scene, camera: camera,
       plan: function () { return planActual; },
-      piezas: function () { return Object.keys(nodos).length; }
+      piezas: function () { return Object.keys(nodos).length; },
+      entorno: function () {
+        return {
+          activo: !!entornoPedido, piezas: Object.keys(nodosEntorno), asignacion: asignacion,
+          layout: layoutEnt, camara: fEnt
+        };
+      }
     };
   }
 

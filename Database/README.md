@@ -8,39 +8,50 @@ recomienda** no, y esa parte del documento sigue vigente tal cual estaba.
 ## Los leads: Postgres, en Supabase
 
 Cuando alguien llena el carné y termina el cuestionario, se guarda quién es,
-qué respondió y qué se le recomendó — para que si vuelve y escribe su cédula y
-su teléfono, no tenga que repetir las siete preguntas. También queda anotado
-qué proyecto le interesó y si la llamada de Manuela terminó en una cita
-agendada con un asesor.
+qué respondió y qué se le recomendó — para que si vuelve y escribe su teléfono y
+su correo, no tenga que repetir las preguntas. También queda anotado qué
+proyecto le interesó y si la llamada de Manuela terminó en una cita agendada
+con un asesor.
 
 Vive en un proyecto de Supabase (Postgres gestionado) aparte del catálogo del
-modelo. El esquema real, tal como está aplicado, está en
-[`esquema/`](esquema/):
+modelo. Los cambios se aplican en orden con los archivos de
+[`migraciones/`](migraciones/):
 
-| Archivo | Qué crea |
+| Archivo | Qué hace |
 |---|---|
-| [`01_tablas.sql`](esquema/01_tablas.sql) | Las tres tablas: `leads`, `consultas`, `intereses`. Row Level Security activado y sin políticas — cerradas a cal y canto. |
-| [`02_funciones.sql`](esquema/02_funciones.sql) | Las cuatro funciones que sí puede llamar el navegador: `guardar_consulta`, `buscar_resultados`, `marcar_interes`, `marcar_intencion`. |
+| [`20261020120000_leads_por_telefono_y_correo.sql`](migraciones/20261020120000_leads_por_telefono_y_correo.sql) | Pasa los leads de cédula a **teléfono + correo**. Las tablas por cédula, con sus filas, se mueven tal cual al esquema cerrado `archivo_cedula`: no se borra nada. Crea de nuevo `leads`, `consultas`, `intereses` y las cuatro funciones del navegador. |
+| [`20261020120100_solicitudes_demo.sql`](migraciones/20261020120100_solicitudes_demo.sql) | La tabla `solicitudes_demo` y la función `solicitar_demo`, que usa "Agenda una demo" de la landing. |
+| [`20261020120200_cuentas_login.sql`](migraciones/20261020120200_cuentas_login.sql) | El esquema `acceso` del login de empresas: `cuentas`, `sesiones` e `intentos`. |
 
-### Sin login, pero sin dejar los datos al aire
+[`esquema/`](esquema/) es el esquema anterior, por cédula, tal como se aplicó
+la primera vez. Queda como historia.
+
+### Sin login para el comprador, pero sin dejar los datos al aire
 
 El navegador lleva una clave *publicable* (en
 [`Demo/frontend/public/experiencia/js/config.js`](../Demo/frontend/public/experiencia/js/config.js),
-`SUPABASE_KEY`) que cualquiera puede ver con "ver código fuente". Por eso las
-tablas están cerradas por completo —ni `anon` ni `authenticated` pueden leer
-una fila directo— y todo pasa por las cuatro funciones de `02_funciones.sql`.
+`SUPABASE_ANON_KEY`) que cualquiera puede ver con "ver código fuente". Por eso
+las tablas están cerradas por completo —ni `anon` ni `authenticated` pueden
+leer una fila directo— y todo pasa por las funciones SECURITY DEFINER.
 
-La que importa es `buscar_resultados`: exige **cédula Y teléfono** a la vez, y
-si no coinciden los dos no devuelve nada, ni siquiera confirma que la cédula
-exista. Es lo único que impide que alguien con el número de documento de otra
-persona vea su nombre, su correo y sus recomendaciones — no hay una cuenta ni
-una contraseña de por medio, así que esa pareja de datos es la única cerradura
-que hay.
+La que importa es `buscar_resultados`: exige **teléfono Y correo** a la vez, y
+si no coinciden los dos no devuelve nada, ni siquiera confirma que el teléfono
+exista. El correo guardado tampoco se sobreescribe en una consulta nueva: si se
+pisara, cualquiera podría reclamar un teléfono ajeno mandándolo una vez con su
+propio correo.
 
-El teléfono guardado tampoco se sobreescribe en una consulta nueva: si se
-pisara, cualquiera podría reclamar una cédula ajena mandándola una vez con su
-propio número, y desde ahí controlar los dos datos que hacen falta para leer
-las consultas de esa persona.
+### Las cuentas de las empresas
+
+El login de constructoras e inmobiliarias (`/acceso/` en el front) **no** usa
+Supabase Auth ni la clave publicable: lo maneja el backend
+([`Demo/backend/api/acceso.py`](../Demo/backend/api/acceso.py)) por conexión
+directa de Postgres con `DATABASE_URL`, que vive solo en las variables de
+Render. El esquema `acceso` no lo expone la API pública de Supabase. La
+contraseña va con scrypt y de las sesiones solo se guarda el SHA-256 del token.
+
+Las cuentas nacen activas: no hay confirmación de correo ni revisión, y por eso
+tampoco recuperación de contraseña por correo (Render, en el plan gratuito,
+bloquea el envío de correos).
 
 ### Qué cuenta como intención de compra
 

@@ -14,6 +14,8 @@
   // botón. Las animaciones internas (cuartos cayendo, progreso, chips) no
   // dependen de esto y siguen disparándose siempre, como debe ser.
   var lastScreen = null;
+  // Id del proyecto con la hoja "Antes de llamarte" abierta (state.permiso), para mover el foco al abrirla y cerrarla.
+  var permisoAbierto = null;
 
   // Selección en curso de la pregunta 'entorno_deseado' (buscador con chips).
   // Vive fuera de `state` a propósito, igual que los inputs no controlados:
@@ -45,6 +47,14 @@
   // proyecto, así que el filtro real es y sigue siendo por localidad.
   var zonaSeleccion = [];
 
+  // Selección en curso del bloque de contadores de Arriendo (pregunta
+  // 'habitaciones' con type:'contador' -- ver data.js). No controlada, mismo
+  // motivo que `zonaSeleccion`/`entornoSeleccion`: cada +/- solo repinta su
+  // número (ver ajustarContador en onRootClick), sin re-render completo. Se
+  // arma en attachInputListeners() al entrar a esta pregunta -- recuperando
+  // lo ya elegido si se vuelve con "Atrás" (ver answers.preferencias).
+  var preferenciasActual = null;
+
   function render() {
     var sameScreen = state.screen === lastScreen;
     // Reconstruir TODO el innerHTML también destruye y recrea el nodo que
@@ -68,6 +78,7 @@
     // initialized". Es no-op si no habia mapa.
     if (window.GDF.mapa) window.GDF.mapa.desmontar();
     root.innerHTML = window.GDF.templates.renderApp(state, derived);
+    animarContadores();
     if (sameScreen) {
       var screenEl = root.querySelector('.gdf-screen');
       if (screenEl) {
@@ -86,17 +97,7 @@
     attachInputListeners();
     // sceneBlock ya dejo el hueco del mapa en el HTML nuevo; esto lo llena.
     updateMapaDOM(derived);
-    // root.innerHTML desprendio el canvas del 3D (si existia) sin destruir su
-    // contexto WebGL; esto lo vuelve a enganchar. Ver updatePlano3D.
-    updatePlano3D(derived);
-  }
-
-  // Puente hacia plano3d/ (mejora progresiva sobre el plano 2D de recortes).
-  // GDF3D puede no existir (el bundle no cargo) o quedar apagado por hardware
-  // sin WebGL: en los dos casos `actualizar` no esta o devuelve false, y el 2D
-  // de siempre sigue siendo lo que se ve, sin que haga falta comprobarlo aqui.
-  function updatePlano3D(derived) {
-    if (window.GDF3D && window.GDF3D.actualizar) window.GDF3D.actualizar(state, derived);
+    if (window.GDF3D) window.GDF3D.actualizar(state, derived);
   }
 
   // Los inputs de nombre/apellido/correo/teléfono son "no controlados":
@@ -147,13 +148,27 @@
         updateStartButton();
       });
     }
-    var cedulaInput = document.getElementById('cedulaInput');
-    if (cedulaInput) {
-      cedulaInput.addEventListener('input', function (e) {
-        state.cedula = e.target.value;
-        updateStartButton();
+    var consentimiento = document.querySelector('.gdf-registro .gdf-consent');
+    if (consentimiento) {
+      consentimiento.addEventListener('keydown', function (e) {
+        if (e.key !== ' ' && e.key !== 'Enter') return;
+        e.preventDefault();
+        dispatch('toggleConsent', {});
+        var nuevo = document.querySelector('.gdf-registro .gdf-consent');
+        if (nuevo) nuevo.focus();
       });
     }
+    // Registro de Leadify (T4b): el error de un campo aparece al salir de él
+    // (blur), no mientras se escribe; desde ahí se actualiza en vivo.
+    [['nombre', nombreInput], ['apellido', apellidoInput], ['correo', correoInput], ['telefono', telefonoInput]]
+      .forEach(function (par) {
+        if (!par[1] || !document.querySelector('.gdf-registro')) return;
+        par[1].addEventListener('blur', function () {
+          state.tocados[par[0]] = true;
+          updateStartButton();
+        });
+      });
+    updateStartButton();
 
     var quizNumberInput = document.getElementById('quizNumberInput');
     if (quizNumberInput) {
@@ -203,10 +218,15 @@
 
     engancharScrollResultados();
 
-    var entornoSearch = document.getElementById('entornoSearch');
-    if (entornoSearch) {
+    // El reinicio es común a las dos formas de esta pregunta (amenidades de
+    // Compra, con buscador; estilo de vida de Arriendo, sin él — ver data.js
+    // y quizPanel en templates.js): #entornoOpciones existe en ambas.
+    if (document.getElementById('entornoOpciones')) {
       entornoSeleccion = [];
       renderEntornoChips();
+    }
+    var entornoSearch = document.getElementById('entornoSearch');
+    if (entornoSearch) {
       var entornoLista = document.getElementById('entornoOpciones');
       // AL ENFOCAR, EL LISTADO COMPLETO. Son las 25 zonas comunes del
       // vocabulario, pre-renderizadas de una vez (a diferencia del buscador
@@ -237,10 +257,10 @@
       entornoSearch.addEventListener('click', filtrarEntorno);
     }
 
-    // EL BUSCADOR DE LA PREGUNTA 'zona', uno solo para barrios y lugares. Igual
-    // que el de arriba: solo aparece con texto escrito, y la selección en curso
-    // se reinicia porque este código solo corre tras un render que aterriza
-    // aquí.
+    // El buscador de la pregunta 'zona' —barrios y lugares en el mismo campo—.
+    // Igual que el de arriba: solo aparece con texto escrito, y la selección
+    // en curso se reinicia porque este código solo corre tras un render que
+    // aterriza aquí.
     var zonaSearch = document.getElementById('zonaSearch');
     if (zonaSearch) {
       // Se RECUPERA lo ya elegido en vez de empezar en blanco: a esta pregunta
@@ -248,8 +268,7 @@
       // elegido tres zonas se lee como que se perdieron.
       zonaSeleccion = (state.zonaSectores || []).slice();
       zonaSearch.addEventListener('input', renderZonaSugerencias);
-      // Enter elige la primera sugerencia —sea barrio o lugar, la lista es una
-      // sola—; si ya hay algo elegido, continúa.
+      // Enter elige la primera sugerencia; si ya hay algo elegido, continúa.
       zonaSearch.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter') return;
         e.preventDefault();
@@ -262,6 +281,34 @@
         if (btn && zonaSeleccion.length) btn.click();
       });
     }
+
+    // El bloque de contadores de Arriendo (ver data.js, 'habitaciones' con
+    // type:'contador'). Se detecta por el primer campo declarado en la
+    // pregunta -- no hay un id fijo porque `campos` es una lista.
+    var qContador = findQuestionById('habitaciones');
+    if (qContador && qContador.type === 'contador' &&
+        document.getElementById('contadorValor-' + qContador.campos[0].id)) {
+      // Recupera lo ya elegido si se vuelve con "Atrás"; si no, arranca en
+      // los valores iniciales de cada campo (ver data.js).
+      var previo = state.answers.preferencias;
+      preferenciasActual = {};
+      qContador.campos.forEach(function (c) {
+        preferenciasActual[c.id] = previo && previo[c.id] != null ? previo[c.id] : c.inicial;
+        pintarContador(c, preferenciasActual[c.id]);
+      });
+    }
+  }
+
+  // El número de un contador de Arriendo y sus extremos: el − se apaga en el
+  // mínimo y el + en el máximo (T8). Solo pinta; el valor vive en
+  // `preferenciasActual`.
+  function pintarContador(campo, valor) {
+    var span = document.getElementById('contadorValor-' + campo.id);
+    if (span) span.textContent = valor;
+    var menos = document.querySelector('[data-action="ajustarContador"][data-campo="' + campo.id + '"][data-delta="-1"]');
+    var mas = document.querySelector('[data-action="ajustarContador"][data-campo="' + campo.id + '"][data-delta="1"]');
+    if (menos) menos.disabled = valor <= campo.min;
+    if (mas) mas.disabled = valor >= campo.max;
   }
 
   // ------------------------------------------------ scroll de los resultados
@@ -336,13 +383,48 @@
     return window.GDF.templates.esc(s);
   }
 
+  // EL "% MATCH" CUENTA DESDE CERO (M04 del manual: contador, ~1 s). Solo
+  // cuando cambia lo que se ve —otra tanda de tarjetas u otra página—: un
+  // repintado de la misma pantalla no puede volver a contar, se leería como
+  // un parpadeo. Quien pide menos movimiento ve el número final de una vez.
+  var ultimaTandaContadores = '';
+  function animarContadores() {
+    var nodos = root.querySelectorAll('.gdf-match-cifra[data-hasta]');
+    if (!nodos.length) { ultimaTandaContadores = ''; return; }
+    var tanda = Array.prototype.map.call(nodos, function (n) { return n.dataset.hasta; }).join(',') +
+      '|' + (state.recoPagina || 0) + '|' + (state.arriendoPagina || 0);
+    if (tanda === ultimaTandaContadores) return;
+    ultimaTandaContadores = tanda;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var DURACION = 900;
+    var inicio = null;
+    function paso(t) {
+      if (inicio === null) inicio = t;
+      var k = Math.min(1, (t - inicio) / DURACION);
+      var suave = 1 - Math.pow(1 - k, 3);
+      for (var i = 0; i < nodos.length; i++) {
+        if (!nodos[i].isConnected) continue;
+        nodos[i].textContent = Math.round(Number(nodos[i].dataset.hasta) * suave);
+      }
+      if (k < 1) requestAnimationFrame(paso);
+    }
+    requestAnimationFrame(paso);
+  }
+
+  // Un icono de js/iconos-ui.js (la × de los chips, por ejemplo). Ver ic() en
+  // templates.js: el formulario no pinta emojis ni símbolos tipográficos.
+  function iconoUI(nombre, opciones) {
+    var I = window.GDF.iconosUI;
+    return I ? I.icono(nombre, opciones) : '';
+  }
+
   // Nombre de localidad a partir del id 1..20 del índice de barrios.
   function localidadPorId(id) {
     var lista = (window.GDF.data && window.GDF.data.LOCALIDADES) || [];
     return lista[id - 1] || null;
   }
 
-  // Las mejores coincidencias de barrio, hasta `tope`.
+  // Las ~8 mejores coincidencias del buscador de barrios.
   //
   // ORDEN: primero lo que EMPIEZA por lo escrito, después lo que solo lo
   // contiene; dentro de cada grupo, la clave más corta primero. Ojo que esto
@@ -350,7 +432,7 @@
   // aquella resuelve qué frase reconocer dentro de una dirección completa,
   // donde la más larga es la más específica. Aquí el usuario está tecleando
   // un prefijo, y lo que espera ver arriba es "Suba", no "Suba Rincón".
-  function sugerenciasZona(termino, tope) {
+  function sugerenciasZona(termino) {
     var idx = window.GDF_BARRIOS || [];
     var empiezan = [];
     var contienen = [];
@@ -373,7 +455,7 @@
     var vistos = {};
     var salida = [];
     var todos = empiezan.concat(contienen);
-    for (var j = 0; j < todos.length && salida.length < tope; j++) {
+    for (var j = 0; j < todos.length && salida.length < 8; j++) {
       var llave = todos[j][1] + '|' + (todos[j][3] != null ? todos[j][3] : todos[j][2]);
       if (vistos[llave]) continue;
       vistos[llave] = true;
@@ -382,27 +464,123 @@
     return salida;
   }
 
-  // ------------------------------------------- el buscador de la pregunta
+  // Cuántas filas de cada tipo caben en el desplegable único. Los barrios van
+  // primero porque son la respuesta directa; los lugares, debajo, son el
+  // camino de quien no se sabe el barrio. Con 5 + 5 locales (más lo que traiga
+  // Photon) la lista sigue cabiendo en los 280px del desplegable con scroll.
+  var MAX_FILAS_BARRIO = 5;
+  var MAX_FILAS_LUGAR = 5;
+
+  /** El rótulo que separa los barrios de los lugares dentro del desplegable. */
+  function grupoZona(texto) {
+    return '<div class="gdf-zona-grupo" aria-hidden="true">' + esc(texto) + '</div>';
+  }
+
+  // El desplegable se pinta al vuelo y no pre-renderizado como el de
+  // 'entorno_deseado': son 1.258 barrios —el gazetteer mas los sectores
+  // catastrales que trajo el mapa— y 6.187 lugares, y crear esos nodos en
+  // cada repintado del quiz para tenerlos ocultos no compensa.
   //
-  // UNA SOLA LISTA, DOS CLASES DE RESULTADO. Hay dos formas de decir dónde se
-  // quiere vivir —el nombre del barrio, o el de un sitio que uno reconozca— y
-  // las dos salen del MISMO campo, cada una bajo su encabezado.
+  // UN SOLO CAMPO, DOS FUENTES. Lo que se escribe se busca a la vez como
+  // barrio y como lugar, y el desplegable los muestra en dos grupos: barrios
+  // arriba y lugares debajo. Antes eran dos pestañas y había que decidir cuál
+  // usar antes de escribir; quien tecleaba "Unicentro" en la de barrios no
+  // encontraba nada y no sabía por qué.
+  function renderZonaSugerencias() {
+    var input = document.getElementById('zonaSearch');
+    var lista = document.getElementById('zonaOpciones');
+    if (!input || !lista) return;
+    var termino = normalizarTexto(input.value).trim();
+    clearTimeout(lugarDebounce);
+    if (!termino) {
+      if (lugarPeticion) lugarPeticion.abort();
+      lista.classList.remove('abierto');
+      lista.innerHTML = '';
+      return;
+    }
+
+    var filasB = sugerenciasZona(termino).slice(0, MAX_FILAS_BARRIO);
+    var barrios = filasBarrio(filasB);
+    // Un lugar que se llama igual que un barrio de arriba ("Cedritos" está en
+    // los dos catálogos) no se repite abajo: sería la misma fila dos veces.
+    var yaEnBarrios = {};
+    filasB.forEach(function (f) { yaEnBarrios[normalizarTexto(f[2])] = true; });
+    // Los lugares arrancan en 2 letras: con una sola, "u" trae cientos de
+    // sitios que no ayudan a nadie y tapan los barrios.
+    var lugares = termino.length >= 2
+      ? filasLugarLocales(termino, yaEnBarrios)
+      : { html: '', vistos: yaEnBarrios };
+
+    var html = '';
+    if (barrios) html += grupoZona('Barrios') + barrios;
+    if (lugares.html) html += grupoZona('Lugares cerca') + lugares.html;
+    lista.innerHTML = html;
+    lista.classList.toggle('abierto', html !== '');
+
+    if (termino.length < 2) return;
+    // La capa en vivo va con freno: se dispara cuando el usuario deja de
+    // escribir, no en cada tecla.
+    var vistos = lugares.vistos;
+    var hayGrupoLugar = lugares.html !== '';
+    lugarDebounce = setTimeout(function () {
+      buscarLugaresEnVivo(termino, function (remotos) {
+        // Puede haber cambiado el texto mientras la red iba y venía.
+        if (normalizarTexto(input.value).trim() !== termino) return;
+        var nuevos = remotos.filter(function (r) {
+          var clave = normalizarTexto(r.n);
+          if (vistos[clave]) return false;         // ya lo trae el catálogo
+          vistos[clave] = true;
+          return true;
+        });
+        if (!nuevos.length) return;
+        // `insertAdjacentHTML` y no `innerHTML +=`: lo segundo vuelve a
+        // parsear la lista entera y destruye las filas que ya están pintadas,
+        // que es justo lo que se ve como un parpadeo al escribir.
+        lista.insertAdjacentHTML('beforeend',
+          (hayGrupoLugar ? '' : grupoZona('Lugares cerca')) +
+          nuevos.slice(0, MAX_FILAS_LUGAR).map(function (r) {
+            return filaLugar(r.n, r.zona);
+          }).join(''));
+        lista.classList.add('abierto');
+      });
+    }, 300);
+  }
+
+  /** Las filas de barrio del desplegable. '' si no hay ninguna. */
+  function filasBarrio(filas) {
+    return filas
+      .map(function (f) {
+        var loc = localidadPorId(f[1]);
+        // `bi` es el polígono exacto de esta entrada (ver GDF_BARRIOS). Viaja
+        // en el botón para que `mapa.marcar` pinte ESE y no el primero que se
+        // llame igual: hay nombres repetidos dentro de una misma localidad.
+        var bi = f[3] != null ? ' data-bi="' + f[3] + '"' : '';
+        // El barrio grande, y debajo la localidad a la que resuelve: es lo
+        // que evita prometer un filtro por barrio que el modelo no hace.
+        return (
+          '<button type="button" class="gdf-multi-opt gdf-zona-opt" data-action="elegirZona"' +
+          ' data-loc="' + esc(loc) + '" data-barrio="' + esc(f[2]) + '"' + bi + '>' +
+          '<span class="b">' + esc(f[2]) + '</span>' +
+          (loc && normalizarTexto(loc) !== f[0] ? '<span class="l">' + esc(loc) + '</span>' : '') +
+          '</button>'
+        );
+      })
+      .join('');
+  }
+
+  // ---------------------------------------------- sugerencias de LUGAR cercano
   //
-  // Hubo aquí dos pestañas ("Conozco el barrio" / "Sé un lugar cerca") y se
-  // quitaron: obligaban a clasificarse antes de poder escribir, y quien elegía
-  // la que no era se encontraba un buscador que no encontraba algo que sí
-  // existe. La pregunta que el usuario tiene en la cabeza es "dónde", no "cómo
-  // sé decirlo".
+  // El segundo grupo del buscador de ubicación, para quien no se sabe los
+  // barrios pero sí reconoce el centro comercial o el parque de al lado.
   //
-  // SON TRES CAPAS, y el orden es el de lo que tarda cada una:
-  //   1. `GDF_BARRIOS` — el gazetteer más los sectores catastrales que trae el
-  //      mapa, 1.258 entradas. Local, instantáneo.
-  //   2. `GDF_LUGARES` — los sitios de Bogotá que baja tools/generar_mapa.py de
-  //      OSM, ya resueltos a `{loc, bi}`. Local, instantáneo.
-  //   3. Photon (photon.komoot.io) en vivo, para el sitio que el catálogo no
-  //      tenga. Llega después y se agrega DEBAJO, dentro del grupo de lugares.
-  // Si no hay internet o Photon no responde, las dos primeras ya están en
-  // pantalla y no se muestra ningún error: el buscador sabe menos, nada más.
+  // SON DOS CAPAS, y el orden importa:
+  //   1. `GDF_LUGARES`, el catálogo que baja tools/generar_mapa.py de OSM y
+  //      viaja YA RESUELTO a `{loc, bi}`. Responde sin red y sin esperar, así
+  //      que se pinta de inmediato.
+  //   2. Photon (photon.komoot.io), el geocodificador en vivo, para todo lo
+  //      que el catálogo no tenga. Llega después y se AGREGA debajo.
+  // Si no hay internet o Photon no responde, la capa 1 ya está en pantalla y
+  // no se muestra ningún error: el buscador simplemente sabe menos.
   //
   // Photon y no Nominatim porque Nominatim PROHÍBE el uso tipo autocompletar
   // en su política; Photon está hecho justamente para eso y no pide llave.
@@ -417,17 +595,8 @@
   var lugarPeticion = null;    // AbortController de la búsqueda en vuelo
   var lugarDebounce = null;
 
-  // CUÁNTAS FILAS DE CADA CLASE. El tope no lo pone el sitio —el desplegable
-  // scrollea a partir de 280px, ver `.gdf-multi-opt-list`— sino la atención:
-  // con las ocho de barrio que se mostraban cuando era el único buscador, el
-  // encabezado "Lugares" caía por debajo del borde y no se descubría nunca.
-  // Cinco y cinco dejan las dos clases a la vista de entrada.
-  var MAX_BARRIOS = 5;
-  var MAX_LUGARES = 5;
-  var MAX_LUGARES_VIVO = 5;
-
-  /** Las mejores coincidencias del CATÁLOGO LOCAL de lugares. Sin red. */
-  function sugerenciasLugar(termino, tope) {
+  /** Las mejores coincidencias del CATÁLOGO LOCAL. Instantáneo, sin red. */
+  function sugerenciasLugar(termino) {
     var idx = window.GDF_LUGARES || [];
     var empiezan = [];
     var contienen = [];
@@ -439,7 +608,7 @@
     var porLargo = function (a, b) { return a.n.length - b.n.length; };
     empiezan.sort(porLargo);
     contienen.sort(porLargo);
-    return empiezan.concat(contienen).slice(0, tope);
+    return empiezan.concat(contienen).slice(0, MAX_FILAS_LUGAR);
   }
 
   /**
@@ -485,40 +654,7 @@
       });
   }
 
-  /** El encabezado que separa las dos clases de resultado. No es pulsable. */
-  function grupoHtml(texto) {
-    return '<p class="gdf-opt-grupo">' + esc(texto) + '</p>';
-  }
-
-  /** La zona `{localidad, barrio, bi}` de una entrada del catálogo local. */
-  function zonaDeLugar(l) {
-    var mapa = window.GDF.mapa;
-    var zona = { localidad: localidadPorId(l.loc), barrio: null, bi: l.bi };
-    // El catálogo guarda `loc`+`bi`; el nombre del barrio sale del mapa, que
-    // es quien tiene los contornos (mismo camino que `barrioPorIndice`).
-    if (l.bi != null && mapa && mapa.nombreDeBarrio) zona.barrio = mapa.nombreDeBarrio(l.loc, l.bi);
-    return zona;
-  }
-
-  /** Una fila de BARRIO. `f` es una entrada de GDF_BARRIOS. */
-  function filaBarrio(f) {
-    var loc = localidadPorId(f[1]);
-    // `bi` es el polígono exacto de esta entrada (ver GDF_BARRIOS). Viaja en
-    // el botón para que `mapa.marcar` pinte ESE y no el primero que se llame
-    // igual: hay nombres repetidos dentro de una misma localidad.
-    var bi = f[3] != null ? ' data-bi="' + f[3] + '"' : '';
-    // El barrio grande, y debajo la localidad a la que resuelve: es lo que
-    // evita prometer un filtro por barrio que el modelo no hace.
-    return (
-      '<button type="button" class="gdf-multi-opt gdf-zona-opt" data-action="elegirZona"' +
-      ' data-loc="' + esc(loc) + '" data-barrio="' + esc(f[2]) + '"' + bi + '>' +
-      '<span class="b">' + esc(f[2]) + '</span>' +
-      (loc && normalizarTexto(loc) !== f[0] ? '<span class="l">' + esc(loc) + '</span>' : '') +
-      '</button>'
-    );
-  }
-
-  /** Una fila de LUGAR. `zona` es `{localidad, barrio, bi}`. */
+  /** Una fila del desplegable de lugares. `zona` es `{localidad, barrio, bi}`. */
   function filaLugar(nombre, zona) {
     // Debajo del nombre va DÓNDE queda, que es la respuesta a la pregunta
     // que el usuario está contestando — no la categoría de OSM, que a nadie
@@ -539,74 +675,24 @@
   }
 
   /**
-   * Pinta el desplegable: barrios y lugares del catálogo de inmediato, y
-   * cuando (y si) llega la respuesta en vivo, lo que el catálogo no tenía.
-   *
-   * Se pinta al vuelo y no pre-renderizado como el de 'entorno_deseado': entre
-   * las dos fuentes locales son miles de entradas, y crear esos nodos en cada
-   * repintado del quiz para tenerlos ocultos no compensa.
+   * Las filas de lugar que salen del catálogo local, ya pintadas, sin los
+   * nombres que ya están en `vistos` (los barrios de arriba). Devuelve además
+   * `vistos` con lo que puso, para que la capa en vivo no repita nada de lo
+   * que ya está en pantalla (ver renderZonaSugerencias).
    */
-  function renderZonaSugerencias() {
-    var input = document.getElementById('zonaSearch');
-    var lista = document.getElementById('zonaOpciones');
-    if (!input || !lista) return;
-    var termino = normalizarTexto(input.value).trim();
-    clearTimeout(lugarDebounce);
-    if (!termino) {
-      if (lugarPeticion) lugarPeticion.abort();
-      lista.classList.remove('abierto');
-      lista.innerHTML = '';
-      return;
-    }
-
-    var barrios = sugerenciasZona(termino, MAX_BARRIOS);
-    // LOS LUGARES PIDEN DOS LETRAS y los barrios no. Con una sola, el catálogo
-    // de lugares devuelve cientos de sitios ordenados por longitud de nombre y
-    // ninguno tiene que ver con lo que se está escribiendo; los barrios son
-    // 1.258 y el prefijo ya discrimina desde la primera tecla.
-    var lugares = termino.length >= 2 ? sugerenciasLugar(termino, MAX_LUGARES) : [];
-
-    // Los encabezados solo aparecen cuando su grupo tiene filas: con "Cedritos"
-    // no hay lugares, y un "Lugares" vacío al final se leería como un fallo.
-    var html = '';
-    if (barrios.length) html += grupoHtml('Barrios y localidades') + barrios.map(filaBarrio).join('');
-    var vistos = {};
-    if (lugares.length) {
-      html += grupoHtml('Lugares') + lugares.map(function (l) {
-        vistos[normalizarTexto(l.n)] = true;
-        return filaLugar(l.n, zonaDeLugar(l));
-      }).join('');
-    }
-    lista.innerHTML = html;
-    lista.classList.toggle('abierto', html !== '');
-
-    if (termino.length < 2) return;
-    // La capa en vivo va con freno: se dispara cuando el usuario deja de
-    // escribir, no en cada tecla.
-    lugarDebounce = setTimeout(function () {
-      buscarLugaresEnVivo(termino, function (remotos) {
-        // Puede haber cambiado el texto mientras la red iba y venía.
-        if (normalizarTexto(input.value).trim() !== termino) return;
-        var nuevos = remotos.filter(function (r) {
-          var clave = normalizarTexto(r.n);
-          if (vistos[clave]) return false;         // ya lo trae el catálogo
-          vistos[clave] = true;
-          return true;
-        }).slice(0, MAX_LUGARES_VIVO);
-        if (!nuevos.length) return;
-        // EL ENCABEZADO PUEDE NO ESTAR TODAVÍA. Si el catálogo local no tenía
-        // ningún lugar, la lista salió sin ese grupo, y lo que llega de Photon
-        // tiene que traerlo consigo o quedaría suelto bajo los barrios, leído
-        // como si fuera uno más de ellos.
-        var trozo = (lugares.length ? '' : grupoHtml('Lugares')) +
-          nuevos.map(function (r) { return filaLugar(r.n, r.zona); }).join('');
-        // `insertAdjacentHTML` y no `innerHTML +=`: lo segundo vuelve a
-        // parsear la lista entera y destruye las filas locales que ya están
-        // pintadas, que es justo lo que se ve como un parpadeo al escribir.
-        lista.insertAdjacentHTML('beforeend', trozo);
-        lista.classList.add('abierto');
-      });
-    }, 300);
+  function filasLugarLocales(termino, vistos) {
+    var mapa = window.GDF.mapa;
+    var html = sugerenciasLugar(termino).filter(function (l) {
+      return !vistos[normalizarTexto(l.n)];
+    }).map(function (l) {
+      vistos[normalizarTexto(l.n)] = true;
+      var zona = { localidad: localidadPorId(l.loc), barrio: null, bi: l.bi };
+      // El catálogo guarda `loc`+`bi`; el nombre del barrio sale del mapa,
+      // que es quien tiene los contornos (mismo camino que `barrioPorIndice`).
+      if (l.bi != null && mapa && mapa.nombreDeBarrio) zona.barrio = mapa.nombreDeBarrio(l.loc, l.bi);
+      return filaLugar(l.n, zona);
+    }).join('');
+    return { html: html, vistos: vistos };
   }
 
   // La identidad de un sector elegido. El barrio cuando lo hay y, si no, la
@@ -704,8 +790,11 @@
       // `zonaSeleccion` sobre por qué no se usa dispatch()/render() aquí).
       input.placeholder = zonaSeleccion.length
         ? 'Agregar otra zona…'
-        : 'Tu barrio, o un lugar que reconozcas…';
+        : 'Tu barrio o un lugar cerca (Cedritos, Unicentro…)';
     }
+    // Lo que Photon traiga tarde ya no tiene dónde ir: el campo está vacío.
+    clearTimeout(lugarDebounce);
+    if (lugarPeticion) lugarPeticion.abort();
 
     // El mapa vive en el lienzo grande y lo pinta Leaflet, no este HTML: se
     // le pide a el que marque. Si no esta montado (sin red, o fuera de esta
@@ -750,7 +839,7 @@
           '<button type="button" class="gdf-entorno-chip-x" data-action="quitarZona"' +
           ' data-loc="' + esc(sector.localidad) + '"' +
           ' data-barrio="' + esc(sector.barrio || '') + '"' +
-          ' aria-label="Quitar ' + esc(etiqueta) + '">×</button>' +
+          ' aria-label="Quitar ' + esc(etiqueta) + '">' + iconoUI('cerrar') + '</button>' +
           '</span>'
         );
       })
@@ -769,10 +858,13 @@
     var idx = entornoSeleccion.indexOf(valor);
     if (idx > -1) entornoSeleccion.splice(idx, 1);
     else entornoSeleccion.push(valor);
-    var botones = document.querySelectorAll('#entornoOpciones .gdf-multi-opt');
+    var botones = document.querySelectorAll('#entornoOpciones [data-action="toggleEntorno"]');
     for (var i = 0; i < botones.length; i++) {
       if (botones[i].dataset.value === valor) {
-        botones[i].classList.toggle('selected', entornoSeleccion.indexOf(valor) > -1);
+        var marcado = entornoSeleccion.indexOf(valor) > -1;
+        botones[i].classList.toggle('selected', marcado);
+        // Los chips de estilo de vida (T8) son botones de alternar.
+        if (botones[i].hasAttribute('aria-pressed')) botones[i].setAttribute('aria-pressed', marcado ? 'true' : 'false');
       }
     }
     renderEntornoChips();
@@ -790,35 +882,78 @@
 
   function renderEntornoChips() {
     var cont = document.getElementById('entornoChips');
-    if (!cont) return;
+    // El barrio 3D reacciona a cada chip, no al pulsar "Continuar": cada
+    // amenidad elegida cae en el lote alrededor de la casa (plano3d/entorno.js).
+    //
+    // Arriendo (estilo de vida): plano3d/entorno.js solo entiende los slugs
+    // reales de su catálogo de amenidades (GRUPO) -- se traduce el
+    // subconjunto mapeado (ver ESTILO_A_AMENIDAD en data.js) en vez de
+    // mandarle las opciones de estilo de vida tal cual.
+    var esArriendo = state.answers.operacion === 'arriendo';
+    var paraEscena = entornoSeleccion;
+    if (esArriendo) {
+      var mapaAmenidad = (window.GDF.data && window.GDF.data.ESTILO_A_AMENIDAD) || {};
+      paraEscena = entornoSeleccion.filter(function (v) { return mapaAmenidad[v]; })
+        .map(function (v) { return mapaAmenidad[v]; });
+    }
+    if (window.GDF3D && window.GDF3D.seleccionarEntorno) {
+      window.GDF3D.seleccionarEntorno(paraEscena);
+    }
     var q = findQuestionById('entorno_deseado');
-    cont.innerHTML = entornoSeleccion
+    // Estilo de vida de Arriendo (T8): no hay fila de chips aparte -- los
+    // propios chips se marcan -- sino un contador "Elegiste N de 3".
+    var cuenta = document.querySelector('.gdf-estilo-cuenta');
+    if (cuenta) {
+      var nCuenta = entornoSeleccion.length;
+      var numero = cuenta.querySelector('.n');
+      if (numero) numero.textContent = nCuenta;
+      var marcas = cuenta.querySelectorAll('.puntos i');
+      for (var m = 0; m < marcas.length; m++) marcas[m].classList.toggle('on', m < nCuenta);
+      cuenta.classList.toggle('completo', q && q.min ? nCuenta >= q.min : false);
+    }
+    if (cont) cont.innerHTML = entornoSeleccion
       .map(function (valor) {
         var opt = q && q.options.filter(function (o) { return o.v === valor; })[0];
         var label = opt ? opt.label : valor;
         return (
           '<span class="gdf-entorno-chip">' + label +
-          '<button type="button" class="gdf-entorno-chip-x" data-action="quitarEntorno" data-value="' + valor + '" aria-label="Quitar ' + label + '">×</button>' +
+          '<button type="button" class="gdf-entorno-chip-x" data-action="quitarEntorno" data-value="' + valor + '" aria-label="Quitar ' + label + '">' + iconoUI('cerrar') + '</button>' +
           '</span>'
         );
       })
       .join('');
+    // Con `min` (estilo de vida de Arriendo): el botón Continuar se
+    // habilita solo al alcanzarlo. Sin `min` (amenidades de Compra) esto no
+    // hace nada -- el botón ya sale 'enabled' desde el HTML (ver
+    // quizPanel en templates.js) y se queda así siempre.
+    if (q && q.min) {
+      var btnCont = document.querySelector('[data-action="answerQuizMultiselect"]');
+      if (btnCont) btnCont.classList.toggle('enabled', entornoSeleccion.length >= q.min);
+    }
   }
 
   function updateStartButton() {
-    var btn = document.querySelector('.gdf-btn-primary');
+    var btn = document.querySelector('[data-action="startQuiz"]');
     if (!btn) return;
-    var isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(state.correo.trim());
-    var canStart = !!(
-      state.nombre.trim() &&
-      state.apellido.trim() &&
-      state.correo.trim() &&
-      isValidEmail &&
-      state.telefono.trim() &&
-      state.cedula.trim() &&
-      state.consent
-    );
-    btn.classList.toggle('enabled', canStart);
+    var v = window.GDF.state.validarRegistro(state);
+    btn.classList.toggle('enabled', v.ok);
+    // Registro de Leadify: errores por campo, botón y ayuda. El botón no lleva
+    // `disabled` sino `aria-disabled`: así un clic con algo pendiente puede
+    // mostrar todos los errores (ver 'startQuiz' en onRootClick).
+    var reg = document.querySelector('.gdf-registro');
+    if (!reg) return;
+    btn.setAttribute('aria-disabled', v.ok ? 'false' : 'true');
+    ['nombre', 'apellido', 'correo', 'telefono', 'consent'].forEach(function (k) {
+      var campo = reg.querySelector('[data-campo="' + k + '"]');
+      if (!campo) return;
+      var mal = !!state.tocados[k] && !v[k];
+      campo.classList.toggle('con-error', mal);
+      campo.classList.toggle('valido', k !== 'consent' && v[k]);
+      var input = campo.querySelector('input');
+      if (input) input.setAttribute('aria-invalid', mal ? 'true' : 'false');
+    });
+    var ayuda = reg.querySelector('.gdf-hint');
+    if (ayuda) ayuda.textContent = v.ok ? 'Todo listo.' : 'Completa los campos para continuar.';
   }
 
   // El botón de la pregunta numérica del quiz (edad) empieza deshabilitado
@@ -853,7 +988,21 @@
       updateTipologiaDOM(dataset);
       return;
     }
+    // Pasar de foto parchea el visor en vez de repintar la app (ver
+    // updateVisorDOM: es lo que quita el parpadeo entre una foto y la otra).
+    if (action === 'visorMover') {
+      updateVisorDOM();
+      return;
+    }
     if (action === 'setDetalleAbierto') return; // el <details> ya se pintó solo
+    // La casilla de la hoja "Antes de llamarte" se marca por DOM: repintar todo perdería el foco y repintaría la
+    // lista de resultados de fondo.
+    if (action === 'togglePermiso') {
+      updatePermisoDOM();
+      return;
+    }
+    var permisoAntes = permisoAbierto;
+    permisoAbierto = state.permiso ? state.permiso.id : null;
     // Se acaba de elegir el apartamento: se pide su plano ya, para que la
     // primera pieza que caiga no lo haga contra un hueco en blanco.
     if (action === 'startQuiz') precargarPlano();
@@ -861,19 +1010,38 @@
     // por innerHTML. Si se destruyen y recrean los .gdf-room no hay nodos que
     // persistan, y entonces cada respuesta rehace el plano entero en vez de
     // añadirle una pieza.
-    if ((action === 'selectOption' || action === 'goBack') &&
+    if ((action === 'selectOption' || action === 'goBack' ||
+         action === 'answerPreferencias' || action === 'answerEstiloVida') &&
         prevScreen === 'quiz' && state.screen === 'quiz') {
       updateQuizDOM();
       return;
     }
     render();
+    // Foco de la hoja: al abrirla va a su casilla; al cerrarla sin llamar, vuelve al botón que la abrió.
+    if (permisoAbierto && !permisoAntes) {
+      var casilla = root.querySelector('.gdf-permiso-casilla');
+      if (casilla) casilla.focus();
+    } else if (permisoAntes && !permisoAbierto && state.screen !== 'confirmacion') {
+      var boton = root.querySelector('.gdf-project-llamar[data-value="' + CSS.escape(permisoAntes) + '"]');
+      if (boton) boton.focus();
+    }
 
     // PASO 1 del contrato. El quiz termina y entra a 'result' exactamente una
-    // vez por partida (desde selectOption, al contestar la última pregunta):
-    // ese es el primer momento en que existen TODOS los campos requeridos.
+    // vez por partida: ese es el primer momento en que existen TODOS los
+    // campos requeridos. Compra llega aquí desde 'selectOption' (última
+    // pregunta); Arriendo puede llegar desde 'selectOption' también -- para
+    // Oficinas/Bodegas, que terminan justo al elegir tipo_propiedad (ver
+    // qListFor en state.js) -- o desde 'answerEstiloVida' para Vivienda.
     if (prevScreen !== 'result' && state.screen === 'result') {
-      cargarRecomendaciones();
+      if (state.answers.operacion !== 'arriendo') cargarRecomendaciones();
+      // Volver desde la confirmación ("Cambiar mi selección") no repite la
+      // búsqueda de Arriendo: la lista que ya estaba sigue sirviendo.
+      else if (prevScreen !== 'confirmacion' || state.arriendo.estado !== 'listo') cargarArriendo();
     }
+
+    // Al abrir el visor se bajan ya las fotos de al lado, para que la primera
+    // flecha tampoco tenga que esperar a la red.
+    if (action === 'abrirVisor') precargarVecinas();
 
     // PASO 2 del contrato. Ya no hace falta un botón de "Confirmar": tocar
     // "Llamar" en la tarjeta (llamarProyecto) ES la confirmación, así
@@ -882,10 +1050,9 @@
     // va (ver confirmacion() en templates.js, y js/llamada.js para el POST).
     if (prevScreen !== 'confirmacion' && state.screen === 'confirmacion') {
       dispararLlamada();
-      // Elegir un proyecto y pedir que lo llamen por el ES el interes. Se
-      // anota aqui, no al final: si la llamada no entra o la persona cierra la
-      // pagina, el interes ya quedo registrado igual.
-      marcarInteres();
+      // Best-effort, en paralelo: un fallo aquí no debe retrasar ni
+      // impedir la llamada real de Manuela, que es lo que sí importa.
+      if (window.GDF.datos) window.GDF.datos.marcarInteres(state);
     }
     // Botón "Reintentar" tras un error de envío: 'reintentarLlamada' ya dejó
     // state.llamada en 'cargando' (ver state.js) y render() de arriba lo
@@ -898,6 +1065,120 @@
     if (action === 'reintentarResumen') {
       iniciarPolling(telefonoEnCurso);
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Cierre del quiz: confeti + cámara a vista cenital antes de saltar a
+  // 'result'. `dispatch('selectOption', ...)` es lo que de verdad cambia de
+  // pantalla y dispara `cargarRecomendaciones()` (ver 'dispatch' arriba); acá
+  // solo se retrasa ESE llamado lo que dura la animación, nada de state.js
+  // cambia. Si el 3D no está activo (sin WebGL, gama baja), solo queda el
+  // confeti y el salto es casi inmediato.
+  //
+  // UNA SOLA VEZ AUNQUE SE PULSE VARIAS. Entre el clic y el salto pasan ~1,3 s
+  // sin que nada cambie en pantalla, y es justo cuando la gente vuelve a
+  // pulsar "Continuar". Cada clic agendaba su propio salto: el primero
+  // llevaba a resultados y el segundo, ya allí, volvía a contestar la última
+  // pregunta y dejaba la pantalla en "Buscando proyectos…" para siempre.
+  // `finalEnCurso` deja pasar solo el primero; y el salto no se hace si para
+  // entonces la pregunta en pantalla ya no es la última (se pulsó "Atrás").
+  var finalEnCurso = false;
+  function finalizarQuizConFiesta(qid, valor) {
+    if (finalEnCurso) return;
+    finalEnCurso = true;
+    lanzarConfeti();
+    var DURACION_CAMARA = 900;
+    var yaTermino = false;
+    var saltarAResultado = function () {
+      if (yaTermino) return;   // por si el callback y el watchdog coinciden
+      yaTermino = true;
+      finalEnCurso = false;
+      var actual = state.screen === 'quiz' ? window.GDF.state.computeDerived(state).q : null;
+      if (!actual || actual.id !== qid) return;
+      dispatch('selectOption', { qid: qid, value: valor });
+    };
+    if (window.GDF3D && window.GDF3D.activo && window.GDF3D.activo()) {
+      window.GDF3D.finalizarVistaSuperior(DURACION_CAMARA, saltarAResultado);
+      // Salvavidas: si el contenedor se desmonta a mitad de la animación (el
+      // usuario navega fuera), el callback de la escena nunca llega solo.
+      setTimeout(saltarAResultado, DURACION_CAMARA + 400);
+    } else {
+      setTimeout(saltarAResultado, 550);
+    }
+  }
+
+  // Lluvia de rectángulos de color con física mínima (gravedad + giro), en un
+  // <canvas> propio pegado a <body> — no a #root, que `render()` reconstruye
+  // por innerHTML y se llevaría el confeti a mitad de la caída. Vanilla, sin
+  // librería: mismo criterio que el resto de `plano3d/` (ver CLAUDE.md).
+  function lanzarConfeti() {
+    var lienzo = document.createElement('canvas');
+    lienzo.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:9999';
+    document.body.appendChild(lienzo);
+    var ctx = lienzo.getContext('2d');
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    function medir() {
+      lienzo.width = window.innerWidth * dpr;
+      lienzo.height = window.innerHeight * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    medir();
+    window.addEventListener('resize', medir);
+
+    // Colores de marca: naranja/dorado de la app, no un arcoíris genérico.
+    var COLORES = ['#ff7a18', '#ff9d3f', '#e6bd00', '#ffbe8c', '#e7ebf0'];
+    // Leadify lleva los de su manual (rojo, navy y grises), leídos de los
+    // tokens que fija js/tema.js para no repetir los hex aquí.
+    if (document.documentElement.dataset.marca === 'leadify') {
+      var css = getComputedStyle(document.documentElement);
+      COLORES = ['--marca', '--tinta', '--tinta-tenue', '--borde', '--marca-velo-fuerte']
+        .map(function (t) { return css.getPropertyValue(t).trim(); })
+        .filter(Boolean);
+    }
+    var GRAVEDAD = 260;
+    var DURACION = 1600;
+    var piezas = [];
+    for (var i = 0; i < 140; i++) {
+      piezas.push({
+        x: Math.random() * window.innerWidth,
+        y: -20 - Math.random() * window.innerHeight * 0.5,
+        w: 6 + Math.random() * 5,
+        h: 8 + Math.random() * 6,
+        vx: (Math.random() - 0.5) * 140,
+        vy: 180 + Math.random() * 220,
+        rot: Math.random() * Math.PI * 2,
+        vr: (Math.random() - 0.5) * 8,
+        color: COLORES[i % COLORES.length],
+      });
+    }
+
+    var inicio = null, ultimo = null;
+    function cuadro(t) {
+      if (inicio === null) { inicio = t; ultimo = t; }
+      var dt = Math.min((t - ultimo) / 1000, 0.05);
+      ultimo = t;
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      piezas.forEach(function (p) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += GRAVEDAD * dt;
+        p.rot += p.vr * dt;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      if (t - inicio < DURACION) {
+        requestAnimationFrame(cuadro);
+      } else {
+        window.removeEventListener('resize', medir);
+        lienzo.remove();
+      }
+    }
+    requestAnimationFrame(cuadro);
   }
 
   // Paso 2 del contrato: POST /api/llamar (ver js/llamada.js). Mismo patrón
@@ -949,7 +1230,9 @@
           pollingHandle = null;
           window.GDF.state.applyAction(state, 'resumenListo', r);
           render();
-          marcarIntencion(r);
+          // Best-effort: la fecha_de_seguimiento de Dapta es la señal de
+          // que se agendó una cita real (ver js/datos.js).
+          if (window.GDF.datos) window.GDF.datos.marcarIntencion(state, r);
           return;
         }
         if (intentos >= POLL_MAX_INTENTOS) {
@@ -964,143 +1247,130 @@
     pollingHandle = setInterval(intentar, POLL_INTERVALO_MS);
   }
 
-  // -------------------------------------------------------------------------
-  // La base de datos (js/datos.js). Nada de esto puede impedir que el
-  // formulario avance: si la base no responde, se sigue igual y solo se pierde
-  // el guardado. Por eso ningun callback bloquea la interfaz.
-  // -------------------------------------------------------------------------
-
-  // Id de la consulta que se acaba de guardar, para colgarle el interes.
-  var consultaId = null;
-
-  /**
-   * "Empezar a construir". Antes de lanzar el cuestionario pregunta a la base
-   * si esta cedula + telefono ya tienen resultados guardados:
-   *
-   *   los tiene  -> se le devuelven y entra directo a la lista de proyectos
-   *   no         -> cuestionario normal, como siempre
-   *
-   * El boton se bloquea mientras tanto. La consulta tarda ~200 ms, pero si la
-   * red esta mal podria tardar mas y sin el aviso parece que el clic no hizo
-   * nada. Si la base falla NO se corta el paso: se arranca el cuestionario,
-   * que es lo que la persona vino a hacer.
-   */
-  function arrancar(boton) {
-    if (boton && !boton.classList.contains('enabled')) return;
-
-    function alCuestionario() {
-      if (window.GDF.state.applyAction(state, 'startQuiz', {})) {
-        render();
-        precargarPlano();
-      }
+  // Único punto donde 'reco' pasa a resuelto, vengan las tarjetas del
+  // backend (cargarRecomendaciones) o del motor local (usarLocalAproximado).
+  // Aquí también se guarda la consulta en la base de leads (ver
+  // js/datos.js) -- solo cuando el resultado es de verdad: nunca vacío ni
+  // en error, tal como exige guardar_consulta() de su lado igualmente.
+  function onRecoResuelta(resultado) {
+    window.GDF.state.applyAction(state, 'recoResuelta', resultado);
+    render();
+    if (window.GDF.datos && resultado && resultado.estado === 'listo' &&
+        resultado.items && resultado.items.length) {
+      window.GDF.datos.guardarConsulta(state, resultado, function (consultaId) {
+        if (consultaId) state.consultaId = consultaId;
+      });
     }
-
-    if (!window.GDF.datos || !window.GDF.datos.activo()) {
-      alCuestionario();
-      return;
-    }
-
-    var textoOriginal = boton ? boton.textContent : '';
-    if (boton) {
-      boton.classList.remove('enabled');
-      boton.textContent = 'Buscando tus datos…';
-    }
-
-    window.GDF.datos.buscar(state.cedula, state.telefono, function (registro, err) {
-      if (boton) {
-        boton.textContent = textoOriginal;
-        boton.classList.add('enabled');
-      }
-      // Sin registro (o con la base caida) el camino es el de siempre. Un
-      // error aqui no se le cuenta a la persona: no hay nada que pueda hacer
-      // al respecto y el formulario funciona igual.
-      if (err || !registro) {
-        alCuestionario();
-        return;
-      }
-      consultaId = registro.consulta_id || null;
-      window.GDF.state.applyAction(state, 'restaurarConsulta', registro);
-      window.GDF.state.applyAction(state, 'recoResuelta', registro.resultados || {});
-      render();
-    });
-  }
-
-  /**
-   * Guarda respuestas + recomendaciones recien calculadas.
-   *
-   * UNA LISTA VACIA NO SE GUARDA. Si el motor fallo —backend caido, red mala—
-   * el resultado es `{estado:'error', items:[]}`, y guardarlo condenaria a esa
-   * persona a ver una pantalla vacia CADA vez que vuelva, porque al reconocerla
-   * se le devuelve lo guardado sin recalcular nada. Mejor no guardar: la
-   * proxima vez repite el cuestionario, que es molesto pero funciona.
-   */
-  function guardarConsulta(resultado) {
-    if (!window.GDF.datos || !window.GDF.datos.activo()) return;
-    if (!resultado || !resultado.items || !resultado.items.length) return;
-    window.GDF.datos.guardar(state, resultado, function (id) {
-      if (id) consultaId = id;
-    });
-  }
-
-  /** El nombre del proyecto que la persona eligio, o null. */
-  function proyectoElegido() {
-    if (!state.chosen || !state.reco || !state.reco.items) return null;
-    for (var i = 0; i < state.reco.items.length; i++) {
-      if (state.reco.items[i].id === state.chosen) return state.reco.items[i].nombre || null;
-    }
-    return null;
-  }
-
-  /** Anota en la base que este proyecto le intereso. */
-  function marcarInteres() {
-    var proyecto = proyectoElegido();
-    if (!proyecto || !window.GDF.datos || !window.GDF.datos.activo()) return;
-    window.GDF.datos.marcarInteres(state, proyecto, consultaId, function () {});
-  }
-
-  /**
-   * Cierra el ciclo con lo que Dapta devuelve al colgar. `fecha_de_seguimiento`
-   * es la senal de que en la llamada se agendo cita con un asesor, que es lo
-   * que aqui cuenta como intencion de compra. Quien decide es la funcion del
-   * servidor: aqui solo se le pasa el dato crudo.
-   *
-   * OJO: esto depende de que la pagina siga abierta cuando Manuela cuelga,
-   * porque es el navegador quien consulta el resumen. Si la persona la cierra
-   * antes, el interes queda anotado pero la intencion no.
-   */
-  function marcarIntencion(resumen) {
-    var proyecto = proyectoElegido();
-    if (!proyecto || !window.GDF.datos || !window.GDF.datos.activo()) return;
-    window.GDF.datos.marcarIntencion(
-      state,
-      proyecto,
-      resumen && resumen.fecha_de_seguimiento,
-      resumen && resumen.temperatura_lead,
-      function () {}
-    );
   }
 
   // POST /recomendaciones. Se usa igual en la primera carga y al reintentar.
   function cargarRecomendaciones() {
     window.GDF.state.applyAction(state, 'recoCargando', {});
     render();
-    window.GDF.recommender.recomendar(state, function (resultado) {
-      window.GDF.state.applyAction(state, 'recoResuelta', resultado);
-      render();
-      // Se guarda el resultado TAL CUAL, que es lo que permite restaurarlo
-      // despues con la misma accion que lo pinto (ver arrancar()).
-      guardarConsulta(resultado);
-    });
+    window.GDF.recommender.recomendar(state, onRecoResuelta);
+  }
+
+  // Resultado de GET /api/arriendo (ver js/arriendo.js). Mismo patrón que
+  // onRecoResuelta, en su propio campo de estado -- Arriendo no guarda
+  // consulta en Supabase todavía (ver el comentario de qListFor en state.js).
+  function onArriendoResuelta(resultado) {
+    window.GDF.state.applyAction(state, 'arriendoResuelta', resultado);
+    render();
+  }
+
+  // GET /api/arriendo. Se dispara al entrar a 'result' con operacion ===
+  // 'arriendo' (ver dispatch() arriba) -- para Oficinas/Bodegas eso pasa sin
+  // preguntas de por medio, justo tras elegir el tipo de propiedad.
+  function cargarArriendo() {
+    window.GDF.state.applyAction(state, 'arriendoCargando', {});
+    render();
+    window.GDF.arriendoApi.cargar(state, onArriendoResuelta);
   }
 
   // Salida de emergencia cuando el backend no responde: se muestran los
   // proyectos del catálogo local marcados como aproximados. Nunca se hace en
   // silencio — `aproximado: true` pinta un aviso permanente en la lista.
   function usarLocalAproximado() {
-    window.GDF.recommender.recomendarLocal(state.answers, function (resultado) {
-      window.GDF.state.applyAction(state, 'recoResuelta', resultado);
-      render();
+    window.GDF.recommender.recomendarLocal(state.answers, onRecoResuelta);
+  }
+
+  // Se intercepta 'startQuiz' (ver onRootClick) para, ANTES de arrancar el
+  // cuestionario, mirar si la persona ya tiene una consulta guardada (ver
+  // js/datos.js) y saltarse las preguntas directo a los resultados de esa vez.
+  //
+  // ENCENDIDA desde 2026-10-06: la base vive en el Supabase de Leadify (proyecto
+  // leadify-leads) y se identifica por teléfono + correo. Si SUPABASE_URL /
+  // SUPABASE_ANON_KEY quedan vacías en js/config.js, js/datos.js responde "sin
+  // configurar" y el quiz arranca directo, igual que con la base apagada.
+  var BUSQUEDA_ACTIVA = true;
+  function iniciarQuizConBusqueda() {
+    // Mismo criterio de canStart que templates.js/state.js: sin esto no
+    // vale la pena ni intentar la consulta.
+    var camposValidos = window.GDF.state.validarRegistro(state).ok;
+    if (!camposValidos && document.querySelector('.gdf-registro')) {
+      ['nombre', 'apellido', 'correo', 'telefono', 'consent'].forEach(function (k) { state.tocados[k] = true; });
+      updateStartButton();
+      var primero = document.querySelector('.gdf-registro .con-error input');
+      if (primero) primero.focus();
+      return;
+    }
+    if (!BUSQUEDA_ACTIVA || !camposValidos || !window.GDF.datos) {
+      // dispatch() vuelve a validar por su cuenta; si falta algo, no hace
+      // nada -- mismo comportamiento que antes de este cambio.
+      dispatch('startQuiz', {});
+      return;
+    }
+
+    var boton = document.querySelector('[data-action="startQuiz"]');
+    var textoOriginal = boton ? boton.textContent : '';
+    if (boton) {
+      boton.textContent = 'Buscando tu perfil…';
+      boton.style.pointerEvents = 'none';
+    }
+
+    window.GDF.datos.buscarResultados(state.telefono, state.correo, function (r) {
+      if (r && r.encontrado) {
+        restaurarConsultaGuardada(r);
+        return; // pantalla nueva: el botón de la escarapela ya no existe
+      }
+      if (boton) {
+        boton.textContent = textoOriginal;
+        boton.style.pointerEvents = '';
+      }
+      dispatch('startQuiz', {});
     });
+  }
+
+  // Salta las 7 preguntas: pinta directo la pantalla de resultados con lo
+  // que ya se había calculado la vez anterior. Mismo estado final que deja
+  // 'selectOption' al contestar la última pregunta (ver state.js), armado a
+  // mano porque aquí no hay preguntas que recorrer.
+  function restaurarConsultaGuardada(r) {
+    state.answers = r.respuestas || {};
+    state.consultaId = r.consultaId || null;
+    state.planta = window.GDF.planta.elegirApartamento(state);
+    state.qi = (window.GDF.data.QUESTIONS || []).length;
+    state.chosen = null;
+    state.screen = 'result';
+
+    var guardado = r.resultados || {};
+    state.reco = {
+      estado: 'listo',
+      leadId: null,
+      items: guardado.items || [],
+      totalCatalogo: guardado.totalCatalogo || null,
+      origenCatalogo: guardado.origenCatalogo || null,
+      error: null,
+      aproximado: !!guardado.aproximado,
+    };
+
+    var mejores = window.GDF.matching.computeMatches(state.answers, 1);
+    state.lead = window.GDF.qualification.computeLeadQualification(
+      state.answers,
+      mejores[0] ? mejores[0].score : 0
+    );
+
+    render();
   }
 
   // AQUI SE ENVIABA EL LEAD, en el sentido del backend anterior (contrato de
@@ -1162,7 +1432,21 @@
     attachInputListeners();
     updatePlantaDOM(derived);
     updateEscenaExtrasDOM(derived);
+    updateEscenaVacioDOM(derived);
     updateMapaDOM(derived);
+  }
+
+  /**
+   * Igual que updateMapaDOM pero para `escena: 'vacio'` (operacion,
+   * tipo_propiedad): sceneBlock ya puso la clase en el primer pintado, pero
+   * la escena no se reconstruye entre preguntas, así que hay que alternarla
+   * a mano cada vez que se entra o se sale de una pregunta vacía.
+   */
+  function updateEscenaVacioDOM(derived) {
+    var escena = root.querySelector('.gdf-scene');
+    if (!escena) return;
+    var vacio = !!(derived.q && derived.q.escena === 'vacio');
+    escena.classList.toggle('gdf-scene--vacio', vacio);
   }
 
   /**
@@ -1251,12 +1535,7 @@
    *   - la que sobra      -> se la lleva la grúa (.saliendo) y queda el hueco
    */
   function updatePlantaDOM(derived) {
-    // Primero y sin condiciones: el 3D no depende de la losa 2D de abajo ni
-    // de en cual de sus ramas entra esta funcion (cambio de plano, armado en
-    // curso, pieza nueva...). Si se dejara solo al final, un cambio de plano
-    // -que corta por `cambiarDePlano` y retorna antes- se perderia.
-    updatePlano3D(derived);
-
+    if (window.GDF3D) window.GDF3D.actualizar(state, derived);
     var losa = root.querySelector('.gdf-losa');
     if (!losa) return;
 
@@ -1684,10 +1963,15 @@
     }, 300);
   }
 
+  // Busca por id en el recorrido ACTIVO (Compra o Arriendo -- ver qListFor en
+  // state.js), no en window.GDF.data.QUESTIONS a secas: los dos caminos
+  // tienen una pregunta 'entorno_deseado' distinta (amenidades reales de
+  // Compra vs. estilo de vida de Arriendo, con otras opciones), y buscar
+  // siempre en la de Compra le pintaría las etiquetas equivocadas a Arriendo.
   function findQuestionById(qid) {
-    var QUESTIONS = window.GDF.data.QUESTIONS;
-    for (var i = 0; i < QUESTIONS.length; i++) {
-      if (QUESTIONS[i].id === qid) return QUESTIONS[i];
+    var lista = window.GDF.state.qListFor(state.answers);
+    for (var i = 0; i < lista.length; i++) {
+      if (lista[i].id === qid) return lista[i];
     }
     return null;
   }
@@ -1695,6 +1979,9 @@
   function onRootClick(e) {
     var el = e.target.closest('[data-action]');
     if (!el) return;
+
+    // El enlace a la política dentro de una casilla: se abre (target=_blank) sin marcar ni desmarcar la casilla.
+    if (el.dataset.action === 'abrirEnlace') return;
 
     // 'noop' es el freno del burbujeo del <details> de planos de cada tarjeta:
     // un clic ahí dentro no debe despachar ninguna acción del estado.
@@ -1709,15 +1996,38 @@
       cargarRecomendaciones();
       return;
     }
+    if (el.dataset.action === 'reintentarArriendo') {
+      cargarArriendo();
+      return;
+    }
     if (el.dataset.action === 'usarLocalAproximado') {
       usarLocalAproximado();
       return;
     }
-    // Empezar TAMBIEN es I/O ahora: antes de lanzar el cuestionario se mira si
-    // esta persona ya paso por aqui, para devolverle sus resultados en vez de
-    // hacerle repetir las siete preguntas. Ver arrancar().
     if (el.dataset.action === 'startQuiz') {
-      arrancar(el);
+      iniciarQuizConBusqueda();
+      return;
+    }
+
+    // Arriendo: +/- de un campo del bloque de contadores. Patchea SOLO su
+    // número en el DOM (no controlado, igual que zonaSeleccion/
+    // entornoSeleccion) -- un re-render completo aquí reconstruiría la
+    // escena 3D de innerHTML.
+    if (el.dataset.action === 'ajustarContador') {
+      if (!preferenciasActual) return;
+      var qPref = findQuestionById('habitaciones');
+      var campo = (qPref && qPref.campos || []).filter(function (c) { return c.id === el.dataset.campo; })[0];
+      if (!campo) return;
+      var delta = Number(el.dataset.delta) || 0;
+      var actual = preferenciasActual[campo.id] != null ? preferenciasActual[campo.id] : campo.inicial;
+      var nuevo = Math.min(campo.max, Math.max(campo.min, actual + delta));
+      preferenciasActual[campo.id] = nuevo;
+      pintarContador(campo, nuevo);
+      return;
+    }
+    if (el.dataset.action === 'answerPreferencias') {
+      if (!preferenciasActual) return;
+      dispatch('answerPreferencias', { qid: el.dataset.qid, value: Object.assign({}, preferenciasActual) });
       return;
     }
 
@@ -1747,7 +2057,15 @@
       var n = numInput ? Number(numInput.value) : NaN;
       var valid = numInput && numInput.value !== '' && !isNaN(n) && (!q || (n >= q.min && n <= q.max));
       if (!valid) return;
-      dispatch('selectOption', { qid: el.dataset.qid, value: String(Math.round(n)) });
+      var valorEdad = String(Math.round(n));
+      // 'edad' va de ultima A PROPOSITO (ver data.js): contestarla es lo que
+      // manda a 'result'. Es el unico punto donde vale la pena la fiesta de
+      // cierre, y por eso se intercepta aqui en vez de en 'selectOption'.
+      if (el.dataset.qid === 'edad') {
+        finalizarQuizConFiesta(el.dataset.qid, valorEdad);
+        return;
+      }
+      dispatch('selectOption', { qid: el.dataset.qid, value: valorEdad });
       return;
     }
     if (el.dataset.action === 'answerQuizText') {
@@ -1761,7 +2079,14 @@
     // las etiquetas `v` exactas que espera el backend (ver data.js), no se
     // aplanan a texto ni se traducen al `label`.
     if (el.dataset.action === 'answerQuizMultiselect') {
-      dispatch('selectOption', { qid: el.dataset.qid, value: entornoSeleccion.slice() });
+      // Arriendo (estilo de vida, con mínimo -- ver data.js): acción propia,
+      // porque escribe dos claves de `answers` a la vez (ver
+      // answerEstiloVida en state.js). Compra sigue exactamente igual.
+      if (state.answers.operacion === 'arriendo') {
+        dispatch('answerEstiloVida', { qid: el.dataset.qid, value: entornoSeleccion.slice() });
+      } else {
+        dispatch('selectOption', { qid: el.dataset.qid, value: entornoSeleccion.slice() });
+      }
       return;
     }
     if (el.dataset.action === 'toggleEntorno' || el.dataset.action === 'quitarEntorno') {
@@ -1786,15 +2111,14 @@
       if (window.GDF.mapa) window.GDF.mapa.volarA(el.dataset.loc, el.dataset.barrio, bi);
       return;
     }
-    // Una fila de LUGAR del mismo desplegable. Mismo destino que `elegirZona`
-    // —la selección de zonas es una sola— pero pasando además el nombre del
-    // lugar, que es lo que dirá el chip.
+    // Una fila del grupo de lugares. Mismo destino que `elegirZona` —la
+    // selección de zonas es una sola, venga de la fila que venga— pero pasando
+    // además el nombre del lugar, que es lo que dirá el chip. El campo se
+    // vacía y el desplegable se cierra en sincronizarZona().
     if (el.dataset.action === 'elegirLugar') {
       var biL = el.dataset.bi === '' ? null : parseInt(el.dataset.bi, 10);
       alternarZonaValor(el.dataset.loc, el.dataset.barrio || null, biL, el.dataset.lugar);
       if (window.GDF.mapa) window.GDF.mapa.volarA(el.dataset.loc, el.dataset.barrio || null, biL);
-      // El campo se vacía y el desplegable se cierra en sincronizarZona(), que
-      // es el mismo camino que sigue un barrio: la lista es una sola.
       return;
     }
     // La × de un chip. Quita siempre, sin importar de qué buscador salió.
@@ -1833,12 +2157,9 @@
   // clic porque el <input>/panel solo existen mientras esa pregunta está en
   // pantalla; en cualquier otra pantalla no hace nada.
   function cerrarEntornoSiTocaAfuera(e) {
-    // SE RECORREN TODOS LOS COMBOS, no el primero. Hoy nunca hay más de uno en
-    // pantalla —la pregunta de zona tuvo dos pestañas y volvió a un solo
-    // buscador—, pero el recorrido se queda: con `querySelector` a secas, el
-    // día que vuelva a haber dos el desplegable del segundo no se cerraría
-    // nunca al tocar afuera, y es un fallo que ya ocurrió una vez. Cada combo
-    // cierra su propia lista; no hace falta saber cuál es.
+    // SE RECORREN TODOS LOS COMBOS, no el primero: así no depende de cuántos
+    // buscadores haya en pantalla. Cada combo cierra su propia lista; no hace
+    // falta saber cuál es.
     var combos = document.querySelectorAll('.gdf-entorno-combo');
     for (var i = 0; i < combos.length; i++) {
       if (combos[i].contains(e.target)) continue;
@@ -1847,10 +2168,137 @@
     }
   }
 
+  // Escape cierra cualquier lista desplegable de un buscador (amenidades o
+  // zona) y suelta el foco del campo, para que no se reabra sola: abrirla es
+  // lo que hacen 'focus' y 'click' sobre el input (ver attachInputListeners).
+  function cerrarListasConEscape(e) {
+    if (e.key !== 'Escape') return;
+    var abiertas = document.querySelectorAll('.gdf-entorno-combo .gdf-multi-opt-list.abierto');
+    if (!abiertas.length) return;
+    for (var i = 0; i < abiertas.length; i++) abiertas[i].classList.remove('abierto');
+    var activo = document.activeElement;
+    if (activo && activo.closest && activo.closest('.gdf-entorno-combo')) activo.blur();
+  }
+
+  /**
+   * Cambia la foto del visor SIN pasar por render().
+   *
+   * EL PARPADEO QUE ESTO RESUELVE tenía dos causas, y las dos nacían de
+   * reconstruir `#root` entero en cada flecha:
+   *   1. El <img> se destruía y se creaba de nuevo, así que entre que
+   *      desaparecía el viejo y pintaba el nuevo quedaba un fotograma vacío.
+   *   2. `.gdf-visor` entra con una animación de opacidad; al recrearse el
+   *      nodo, esa animación se disparaba OTRA VEZ en cada foto, y el visor
+   *      entero hacía un fundido desde transparente.
+   *
+   * Mismo patrón que `updateTipologiaDOM`: el estado ya cambió en
+   * `applyAction`, aquí solo se parchea lo que se ve.
+   */
+  function updateVisorDOM() {
+    var v = state.visor;
+    if (!v) return;
+    var caja = root.querySelector('.gdf-visor');
+    if (!caja) { render(); return; }
+
+    var url = v.fotos[v.i];
+    var contador = caja.querySelector('.gdf-visor-contador');
+    if (contador) contador.textContent = (v.i + 1) + ' / ' + v.fotos.length;
+
+    // La foto nueva se pone cuando YA está cargada; hasta entonces se queda
+    // la anterior. Cambiar el `src` a secas deja el hueco mientras baja, que
+    // es el mismo parpadeo por otra vía.
+    var precarga = new Image();
+    precarga.onload = function () {
+      // Si para cuando carga ya se movió otra vez, esta foto perdió su turno.
+      if (!state.visor || state.visor.fotos[state.visor.i] !== url) return;
+      var img = caja.querySelector('.gdf-visor-foto');
+      var fondo = caja.querySelector('.gdf-visor-fondo');
+      if (img) {
+        img.src = url;
+        img.alt = (v.nombre || 'Foto del inmueble') + ' — foto ' + (v.i + 1);
+      }
+      if (fondo) fondo.style.backgroundImage = "url('" + url + "')";
+    };
+    precarga.src = url;
+    precargarVecinas();
+  }
+
+  /** Las fotos de al lado, para que la siguiente flecha sea instantánea. */
+  function precargarVecinas() {
+    var v = state.visor;
+    if (!v || v.fotos.length < 2) return;
+    [1, -1].forEach(function (paso) {
+      var vecina = new Image();
+      vecina.src = v.fotos[(v.i + paso + v.fotos.length) % v.fotos.length];
+    });
+  }
+
+  // Hoja "Antes de llamarte": Escape la cierra sin llamar; Espacio o Enter marcan su casilla.
+  function onTeclaPermiso(e) {
+    if (!state.permiso) return;
+    if (e.key === 'Escape') {
+      dispatch('cancelarPermiso', {});
+    } else if ((e.key === ' ' || e.key === 'Enter') && e.target.classList && e.target.classList.contains('gdf-permiso-casilla')) {
+      dispatch('togglePermiso', {});
+    } else {
+      return;
+    }
+    e.preventDefault();
+  }
+
+  function updatePermisoDOM() {
+    var aceptado = !!(state.permiso && state.permiso.aceptado);
+    var casilla = root.querySelector('.gdf-permiso-casilla');
+    var boton = root.querySelector('.gdf-permiso-hoja .gdf-btn-primary');
+    if (!casilla || !boton) return render();
+    casilla.setAttribute('aria-checked', aceptado ? 'true' : 'false');
+    var caja = casilla.querySelector('.box');
+    caja.classList.toggle('checked', aceptado);
+    caja.innerHTML = aceptado && window.GDF.iconosUI ? window.GDF.iconosUI.icono('check') : '';
+    boton.classList.toggle('enabled', aceptado);
+  }
+
+  function onTeclaVisor(e) {
+    if (!state.visor) return;
+    if (e.key === 'Escape') dispatch('cerrarVisor', {});
+    else if (e.key === 'ArrowRight') dispatch('visorMover', { paso: '1' });
+    else if (e.key === 'ArrowLeft') dispatch('visorMover', { paso: '-1' });
+    else return;
+    // Solo se frena la tecla que SÍ se usó: con el visor abierto, Escape no
+    // puede llegar al modal de la landing que contiene este iframe.
+    e.preventDefault();
+  }
+
+  // Un botón principal sin `.enabled` se ve gris y su acción no avanza,
+  // pero sigue siendo un <button> clicable (cada acción valida por su
+  // cuenta; el registro de Leadify lo aprovecha para mostrar los errores). Se
+  // marca con aria-disabled para que un lector de pantalla diga que está
+  // inactivo, y para que axe no lo cuente como texto de bajo contraste: WCAG
+  // exime a los controles inactivos. Un solo observador cubre todos los
+  // sitios que encienden o apagan un botón, en vez de repetirlo en cada uno.
+  function sincronizarBotonesInactivos() {
+    var botones = root.querySelectorAll('.gdf-btn-primary');
+    for (var i = 0; i < botones.length; i++) {
+      var valor = botones[i].classList.contains('enabled') ? 'false' : 'true';
+      if (botones[i].getAttribute('aria-disabled') !== valor) botones[i].setAttribute('aria-disabled', valor);
+    }
+  }
+
   function boot() {
     root = document.getElementById('root');
     root.addEventListener('click', onRootClick);
+    if (window.MutationObserver) {
+      new MutationObserver(sincronizarBotonesInactivos).observe(root, {
+        subtree: true, childList: true, attributes: true, attributeFilter: ['class'],
+      });
+    }
     document.addEventListener('click', cerrarEntornoSiTocaAfuera);
+    document.addEventListener('keydown', cerrarListasConEscape);
+    // Teclado del visor de fotos. Va en `document` y una sola vez: el visor se
+    // repinta con cada render y un listener suyo propio se duplicaría en cada
+    // flecha. No hace nada mientras el visor está cerrado.
+    document.addEventListener('keydown', onTeclaVisor);
+    document.addEventListener('keydown', onTeclaPermiso);
     // El fondo AI Signal. Va ANTES del primer render y una sola vez: cuelga
     // del <body>, así que los re-renders de #root no lo tocan y la red sigue
     // corriendo igual al pasar de la escarapela al quiz. Se monta solo con la

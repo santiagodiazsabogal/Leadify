@@ -7,7 +7,7 @@
 // una vez por partida, con el mismo patrón que cargarRecomendaciones() en
 // main.js (cargando -> resuelto).
 //
-// POR QUÉ NO VA CONTRA Leadify_BASE. Ese servicio (servicio_leadify.py) solo
+// POR QUÉ NO VA CONTRA LEADIFY_BASE. Ese servicio (servicio_leadify.py) solo
 // sabe de recomendaciones y no conoce a Dapta ni tiene su API key. api.py sí
 // la tiene, guardada en el servidor — nunca puede bajar al navegador — así
 // que esta llamada va siempre contra DAPTA_LLAMADA_BASE (config.js),
@@ -39,7 +39,53 @@
     return isNaN(n) ? 0 : n;
   }
 
+  // El inmueble de Arriendo que se eligió, o null. Es una lista aparte
+  // (`state.arriendo.items`) con otro contrato: lo que allá es `precioCop` y
+  // `vis`, aquí es un canon mensual y un tipo de inmueble.
+  function elegidoArriendo(state) {
+    var items = (state.arriendo && state.arriendo.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      if (String(items[i].id_inmueble) === String(state.chosen)) return items[i];
+    }
+    return null;
+  }
+
+  // El texto que Manuela usa para decir QUÉ está ofreciendo. En compra es la
+  // categoría legal (VIS / No VIS); en arriendo esa categoría no existe.
+  var TIPO_LEGIBLE = { vivienda: 'Vivienda en arriendo', oficina: 'Oficina en arriendo',
+                       bodega: 'Bodega en arriendo' };
+
+  function construirPayloadArriendo(state) {
+    var elegido = elegidoArriendo(state);
+    if (!elegido) return null;
+    return {
+      nombre: [state.nombre, state.apellido].filter(Boolean).join(' ').trim(),
+      telefono: state.telefono.trim(),
+      afiliado: false,
+      rango_ingreso: labelDe('ingresos', state.answers.ingresos),
+      // `edad` se omite a propósito: el recorrido de Arriendo no la pregunta
+      // y el backend la acepta ausente (ver SolicitudLlamada en api/app.py).
+      personas_a_cargo: personasNumero(state),
+      entorno_deseado: (state.answers.estilo_vida || []).join(', '),
+      tipo_operacion: 'arriendo',
+      tipo_inmueble: elegido.tipo_inmueble || 'vivienda',
+      apartamento: {
+        nombre_proyecto: elegido.nombre || '',
+        // Con el id, el backend sabe de qué inmobiliaria es el inmueble (CRM de cada empresa).
+        id_proyecto: elegido.id_inmueble != null ? String(elegido.id_inmueble) : undefined,
+        localidad: elegido.localidad_nombre || '',
+        tipo_vivienda: TIPO_LEGIBLE[elegido.tipo_inmueble] || 'Arriendo',
+        // El canon mensual. El backend sabe que en arriendo este número es el
+        // pago mensual y no el valor del inmueble.
+        precio_desde_cop: elegido.precio_canon_cop || 0,
+        aplica_subsidio_caja: false,
+      },
+    };
+  }
+
   function construirPayload(state) {
+    if (state.answers.operacion === 'arriendo') return construirPayloadArriendo(state);
+
     var elegido = null;
     state.reco.items.forEach(function (vm) {
       if (vm.id === state.chosen) elegido = vm;
@@ -48,6 +94,9 @@
 
     var apartamento = {
       nombre_proyecto: elegido.nombre,
+      // Con el id, el backend sabe de qué constructora es el proyecto (CRM de cada empresa). El motor
+      // local no tiene ids (usa el nombre): entonces no se manda.
+      id_proyecto: /^\d+$/.test(String(elegido.id)) ? String(elegido.id) : undefined,
       localidad: elegido.localidad || '',
       tipo_vivienda: elegido.vis ? 'VIS' : 'No VIS',
       precio_desde_cop: elegido.precioCop || 0,
@@ -79,6 +128,11 @@
    * resumen de verdad (ver verificarResultado más abajo).
    */
   function disparar(state, cb) {
+    // Formulario con la marca de una empresa sin acuerdo: demostración, no se llama a nadie.
+    if (window.GDF.consentimiento && window.GDF.consentimiento.esDemoDeMarca()) {
+      cb({ estado: 'lista', real: false, mensaje: 'Demostración: desde este formulario no se hace ninguna llamada.' });
+      return;
+    }
     var base = (window.GDF_CONFIG || {}).DAPTA_LLAMADA_BASE;
     if (!base) {
       cb({ estado: 'error', mensaje: 'Falta window.GDF_CONFIG.DAPTA_LLAMADA_BASE (ver js/config.js).' });
@@ -90,6 +144,16 @@
       cb({ estado: 'error', mensaje: 'No se pudo armar la llamada: falta el proyecto elegido.' });
       return;
     }
+    // De qué formulario viene el lead y, si es una demo con marca, el token firmado: el
+    // servidor lo verifica; uno falso o vencido se ignora y Manuela habla como Leadify.
+    payload.marca = (window.GDF_MARCA || {}).slug || 'leadify';
+    // Si autorizó compartir sus datos con la dueña del proyecto (hoja "Antes de llamarte", js/consentimiento.js),
+    // va con la llamada: sin eso, el lead no le llega a esa empresa.
+    if (state.autorizaCompartir) {
+      payload.autoriza_compartir = true;
+      payload.version_autorizacion = state.autorizaCompartir.version;
+    }
+    if (window.GDF_DEMO && window.GDF_DEMO.token) payload.demo = window.GDF_DEMO.token;
 
     fetch(base.replace(/\/$/, '') + '/api/llamar', {
       method: 'POST',
