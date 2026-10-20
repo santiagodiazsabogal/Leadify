@@ -26,5 +26,5 @@
 - Pendientes: cerrar HU-010 con la evidencia de las pruebas, actualizar las fechas de sprint y reactivar la protección de `main`.
 
 # Evidencia
+<img width="704" height="1524" alt="Daily5" src="https://github.com/user-attachments/assets/3c8aa01a-2b21-436b-b2f6-0adc03bc5b7d" />
 
-<!-- Pegar aquí la captura del daily (25 SEPT) -->
