@@ -26,4 +26,4 @@
 
 # Evidencia
 
-<!-- Pegar aquí la captura del daily (14 OCT) -->
+<img width="686" height="348" alt="Daily7" src="https://github.com/user-attachments/assets/e159b70b-eb81-45f0-9796-5fb6a3157598" />
