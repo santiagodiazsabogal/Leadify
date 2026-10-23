@@ -190,6 +190,8 @@
       '<button class="gdf-btn-primary' + (v.ok ? ' enabled' : '') + '" data-action="startQuiz" aria-disabled="' + (v.ok ? 'false' : 'true') + '">' +
       'Empezar ' + ic('flecha-derecha') + '</button>' +
       '<p class="gdf-hint" aria-live="polite">' + (v.ok ? 'Todo listo.' : 'Completa los campos para continuar.') + '</p>' +
+      // El login de empresas (/acceso/) vive fuera del formulario: `_top` lo abre en la página completa, no en el iframe.
+      '<p class="gdf-registro-empresa">¿Eres constructora o inmobiliaria? <a href="/acceso/" target="_top">Inicia sesión</a></p>' +
       '</div>' +
       '</div>'
     );

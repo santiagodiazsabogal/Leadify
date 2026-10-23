@@ -6434,6 +6434,20 @@ html[data-marca='leadify'] .gdf-project-acciones .gdf-project-llamar:hover {
 .gdf-registro .gdf-hint {
   font-size: 12px;
 }
+.gdf-registro-empresa {
+  margin: 18px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--borde);
+  text-align: center;
+  font-size: 13px;
+  color: var(--tinta-media);
+}
+.gdf-registro-empresa a {
+  color: var(--tinta);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 @media (max-width: 420px) {
   .gdf-registro {
     padding: 28px 18px 28px;
