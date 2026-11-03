@@ -168,7 +168,7 @@
     // "+57 300…" llega como "57300…": el indicativo sobra y dejaría el número
     // en 12 dígitos.
     if (d.length === 12 && d.indexOf('57') === 0) d = d.slice(2);
-    return d ? parseInt(d, 10) : null;
+    return d ? Number.parseInt(d, 10) : null;
   }
 
   /**
@@ -185,7 +185,7 @@
     // El contrato exige 1..4 y el quiz ofrece 0. Quien no tiene personas a
     // cargo levantaría un ValueError y se quedaría sin recomendación, así que
     // se manda 1. Es un ajuste NUESTRO, no un dato del usuario.
-    var personas = a.personas === '4+' ? 4 : parseInt(a.personas || '1', 10);
+    var personas = a.personas === '4+' ? 4 : Number.parseInt(a.personas || '1', 10);
     if (!(personas >= 1)) personas = 1;
 
     var cuerpo = {
@@ -197,7 +197,7 @@
       tipo_vivienda: a.tipo === 'VIS' ? 1 : 0,
       salario: SALARIO[a.ingresos] || null,
       personas_a_cargo: personas,
-      edad: parseInt(a.edad, 10) || null,
+      edad: Number.parseInt(a.edad, 10) || null,
       // OJO: `Localidad` con L MAYUSCULA y sin ceros a la izquierda. Lo avisa
       // el contrato en §1, y es de los errores que no dan mensaje claro: llega
       // como dato inválido, no como campo ausente.
@@ -214,7 +214,7 @@
       // state.js); si algún día el modelo acepta varias, aquí es donde hay
       // que volver a mandar la lista.
       Localidad: localidadId(a && a.zona),
-      numero_habitaciones: a.habitaciones === '3+' ? 3 : parseInt(a.habitaciones || '1', 10),
+      numero_habitaciones: a.habitaciones === '3+' ? 3 : Number.parseInt(a.habitaciones || '1', 10),
       piso: 4,
       zonas_comunes: zonasComunesDe(a),
     };

@@ -966,7 +966,7 @@
     var n = Number(input.value);
     var min = input.min !== '' ? Number(input.min) : -Infinity;
     var max = input.max !== '' ? Number(input.max) : Infinity;
-    var valid = input.value !== '' && !isNaN(n) && n >= min && n <= max;
+    var valid = input.value !== '' && !Number.isNaN(n) && n >= min && n <= max;
     btn.classList.toggle('enabled', valid);
   }
 
@@ -1396,7 +1396,7 @@
   function updateTipologiaDOM(ds) {
     var card = cardDe(ds.proyecto);
     if (!card) return;
-    var idx = String(parseInt(ds.idx, 10) || 0);
+    var idx = String(Number.parseInt(ds.idx, 10) || 0);
 
     var tabs = card.querySelectorAll('.gdf-tipo-tab');
     for (var i = 0; i < tabs.length; i++) {
@@ -2054,8 +2054,8 @@
     if (el.dataset.action === 'answerQuizNumber') {
       var numInput = document.getElementById('quizNumberInput');
       var q = findQuestionById(el.dataset.qid);
-      var n = numInput ? Number(numInput.value) : NaN;
-      var valid = numInput && numInput.value !== '' && !isNaN(n) && (!q || (n >= q.min && n <= q.max));
+      var n = numInput ? Number(numInput.value) : Number.NaN;
+      var valid = numInput && numInput.value !== '' && !Number.isNaN(n) && (!q || (n >= q.min && n <= q.max));
       if (!valid) return;
       var valorEdad = String(Math.round(n));
       // 'edad' va de ultima A PROPOSITO (ver data.js): contestarla es lo que
@@ -2100,7 +2100,7 @@
     if (el.dataset.action === 'elegirZona') {
       // El polígono exacto de la sugerencia (ver `renderZonaSugerencias`).
       // Sin él —los 20 nombres de localidad— se pinta la localidad sola.
-      var bi = el.dataset.bi === undefined ? null : parseInt(el.dataset.bi, 10);
+      var bi = el.dataset.bi === undefined ? null : Number.parseInt(el.dataset.bi, 10);
       alternarZonaValor(el.dataset.loc, el.dataset.barrio, bi);
       // Solo desde el buscador se mueve el mapa. Al tocar una zona no: la
       // persona ya esta mirando donde toco, y recentrarle la vista debajo del
@@ -2116,7 +2116,7 @@
     // además el nombre del lugar, que es lo que dirá el chip. El campo se
     // vacía y el desplegable se cierra en sincronizarZona().
     if (el.dataset.action === 'elegirLugar') {
-      var biL = el.dataset.bi === '' ? null : parseInt(el.dataset.bi, 10);
+      var biL = el.dataset.bi === '' ? null : Number.parseInt(el.dataset.bi, 10);
       alternarZonaValor(el.dataset.loc, el.dataset.barrio || null, biL, el.dataset.lugar);
       if (window.GDF.mapa) window.GDF.mapa.volarA(el.dataset.loc, el.dataset.barrio || null, biL);
       return;

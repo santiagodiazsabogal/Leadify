@@ -44,8 +44,8 @@
   ];
 
   function factorEdad(a) {
-    var edad = parseInt(a.edad, 10);
-    if (!edad || isNaN(edad)) return FACTOR_EDAD[1]; // sin dato, ni premia ni castiga
+    var edad = Number.parseInt(a.edad, 10);
+    if (!edad || Number.isNaN(edad)) return FACTOR_EDAD[1]; // sin dato, ni premia ni castiga
     for (var i = 0; i < FACTOR_EDAD.length; i++) {
       if (edad <= FACTOR_EDAD[i].hasta) return FACTOR_EDAD[i];
     }
@@ -58,7 +58,7 @@
   }
 
   function habitacionesPedidas(a) {
-    return a.habitaciones === '3+' ? 3 : parseInt(a.habitaciones || '1', 10);
+    return a.habitaciones === '3+' ? 3 : Number.parseInt(a.habitaciones || '1', 10);
   }
 
   function computeMatches(a, limite) {
@@ -158,7 +158,7 @@
       // hogar son personas + 1. Se cruza contra las habitaciones y los m² del
       // proyecto, que son datos oficiales de la ficha.
       if (a.personas !== undefined && a.personas !== null && a.personas !== '') {
-        var hogar = (a.personas === '4+' ? 4 : parseInt(a.personas, 10) || 0) + 1;
+        var hogar = (a.personas === '4+' ? 4 : Number.parseInt(a.personas, 10) || 0) + 1;
         var porHab = hogar / Math.max(1, p.hab);
         if (porHab > 2) suma(-9, hogar + ' personas en ' + p.hab + ' habitación' + (p.hab > 1 ? 'es' : '') + ': queda apretado');
         else if (porHab > 1.5) suma(-3, hogar + ' personas para ' + p.hab + ' habitaciones: justo');

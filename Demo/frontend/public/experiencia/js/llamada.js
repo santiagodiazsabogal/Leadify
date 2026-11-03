@@ -35,8 +35,8 @@
   function personasNumero(state) {
     var v = state.answers.personas;
     if (v === '4+') return 4;
-    var n = parseInt(v, 10);
-    return isNaN(n) ? 0 : n;
+    var n = Number.parseInt(v, 10);
+    return Number.isNaN(n) ? 0 : n;
   }
 
   // El inmueble de Arriendo que se eligió, o null. Es una lista aparte
@@ -111,7 +111,7 @@
       telefono: state.telefono.trim(),
       afiliado: state.afiliado === 'Sí',
       rango_ingreso: labelDe('ingresos', state.answers.ingresos),
-      edad: parseInt(state.answers.edad, 10) || 0,
+      edad: Number.parseInt(state.answers.edad, 10) || 0,
       personas_a_cargo: personasNumero(state),
       entorno_deseado: entornoLegible(state),
       apartamento: apartamento,

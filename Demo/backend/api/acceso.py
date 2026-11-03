@@ -121,7 +121,7 @@ def _alm() -> AlmacenAcceso:
 # ---------------------------------------------------------------------------
 
 _RE_USUARIO = re.compile(r"^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$")
-_RE_CORREO = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$")
+_RE_CORREO = re.compile(r"^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)*\.[^\s@.]{2,}$")
 
 
 def normalizar_correo(c: str) -> str:
@@ -346,7 +346,7 @@ def crear_cuenta(datos: EntradaRegistro, request: Request, response: Response):
         raise _error(409, "correo_ocupado")
     except UsuarioOcupado:
         raise _error(409, "usuario_ocupado")
-    logger.info("acceso: cuenta nueva %s", usuario)
+    logger.info("acceso: cuenta nueva creada")
     return {"correo": correo}
 
 

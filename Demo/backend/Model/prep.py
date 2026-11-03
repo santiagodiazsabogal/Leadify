@@ -47,7 +47,7 @@ from Model.catalogos import (
 # El catálogo por defecto es el que produce `scraping/scraper_projects.py`. Se
 # mantiene el seed manual como respaldo para poder correr prep sin haber
 # scrapeado. Las dos rutas viven en `Model/rutas.py`.
-from Model.rutas import RUTA_CATALOGO, RUTA_MODELO, RUTA_SEED_MANUAL
+from Model.rutas import RUTA_CATALOGO, RUTA_MODELO, RUTA_SEED_MANUAL, ruta_del_proyecto
 
 RUTA_SEED = RUTA_CATALOGO if os.path.exists(RUTA_CATALOGO) else RUTA_SEED_MANUAL
 
@@ -493,8 +493,8 @@ def _reporte(salida, ruta_salida):
 
 def main():
     parser = argparse.ArgumentParser(description="Prepara y etiqueta los proyectos para el modelo.")
-    parser.add_argument("--seed", default=RUTA_SEED, help="Ruta del JSON crudo de entrada.")
-    parser.add_argument("--salida", default=RUTA_MODELO, help="Ruta del JSON etiquetado de salida.")
+    parser.add_argument("--seed", type=ruta_del_proyecto, default=RUTA_SEED, help="Ruta del JSON crudo de entrada.")
+    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_MODELO, help="Ruta del JSON etiquetado de salida.")
     args = parser.parse_args()
     preparar(args.seed, args.salida)
 

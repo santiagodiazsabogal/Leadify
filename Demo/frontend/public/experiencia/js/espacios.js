@@ -40,7 +40,7 @@
   function numeroLider(texto) {
     var m = texto.match(/^(\d+|un|una|uno|dos|tres|cuatro|cinco)\b/);
     if (!m) return 1;
-    var n = NUMEROS[m[1]] || parseInt(m[1], 10);
+    var n = NUMEROS[m[1]] || Number.parseInt(m[1], 10);
     return n > 0 && n < 10 ? n : 1;
   }
 

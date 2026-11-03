@@ -126,7 +126,7 @@
     // El coral aparece SOLO aquí (§2: "es un color de señal, no debe llenar
     // toda la interfaz"). Un pulso cada vez, no una lluvia de puntos.
     if (!pulso && ahora > proximoPulso && pares.length) {
-      pulso = { par: pares[(Math.random() * pares.length) | 0], t0: ahora };
+      pulso = { par: pares[Math.trunc(Math.random() * pares.length)], t0: ahora };
     }
     if (pulso) {
       var t = (ahora - pulso.t0) / VIAJE_MS;

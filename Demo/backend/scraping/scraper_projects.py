@@ -97,6 +97,7 @@ from Model.rutas import (
     DIR_IMAGENES,
     RUTA_CATALOGO as RUTA_SALIDA,
     RUTA_LOCALIDADES_GEO,
+    ruta_del_proyecto,
 )
 
 # Límites oficiales de las 20 localidades (Datos Abiertos Bogotá). Se usan solo
@@ -490,7 +491,7 @@ _RE_CRUCE = re.compile(
 # Algunas fichas omiten el "#": "Carrera 7, 127b-31". El cruce se reconoce
 # igual por la forma "<numero><letra opcional> - <placa>".
 _RE_CRUCE_SIN_NUMERAL = re.compile(
-    r"\b(?P<num>\d{1,3})\s*(?P<sufijo>[a-z]{0,2})\s*(?P<orientacion>sur|este)?\s+\d{1,3}\b"
+    r"\b(?P<num>\d{1,3})(?:\s*[a-z]{1,2})?(?:\s*(?P<orientacion>sur|este))?\s+\d{1,3}\b"
 )
 
 
@@ -2086,7 +2087,7 @@ def main(argv=None):
         "--fuente", nargs="+", choices=sorted(FUENTES), default=sorted(FUENTES),
         help="constructoras a consultar (por defecto, las cuatro)",
     )
-    parser.add_argument("--salida", default=RUTA_SALIDA, help="ruta del JSON de salida")
+    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_SALIDA, help="ruta del JSON de salida")
     parser.add_argument(
         "--no-imagenes", action="store_true", help="no descargar las imágenes"
     )

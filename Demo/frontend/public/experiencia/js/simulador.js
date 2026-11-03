@@ -56,9 +56,19 @@
   // regex y no con toLocaleString para que no dependa de la configuracion
   // regional del navegador de quien mire: en un equipo en ingles saldrian
   // comas y el numero se leeria como otro.
+  function conPuntos(entero) {
+    var s = String(entero);
+    var negativo = s.charAt(0) === '-';
+    var digitos = negativo ? s.slice(1) : s;
+    if (!/^\d+$/.test(digitos)) return s;
+    var grupos = [];
+    for (var i = digitos.length; i > 0; i -= 3) grupos.unshift(digitos.slice(Math.max(0, i - 3), i));
+    return (negativo ? '-' : '') + grupos.join('.');
+  }
+
   function pesos(v) {
     if (!v) return '—';
-    return '$' + Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return '$' + conPuntos(Math.round(v));
   }
 
   window.GDF = window.GDF || {};

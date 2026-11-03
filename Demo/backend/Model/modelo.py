@@ -53,7 +53,7 @@ from Model.cota_minima import evaluar_esfuerzo
 
 # Las rutas salen de `Model/rutas.py`, que es el único sitio que sabe dónde
 # vive cada archivo del backend.
-from Model.rutas import RUTA_HISTORIAL, RUTA_LLAMATIVOS, RUTA_MODELO, asegurar_salidas
+from Model.rutas import RUTA_HISTORIAL, RUTA_LLAMATIVOS, RUTA_MODELO, asegurar_salidas, ruta_del_proyecto
 
 # ---------------------------------------------------------------------------
 # Parámetros del filtro duro
@@ -447,7 +447,7 @@ def _cargar_formulario(entrada):
         texto = entrada.strip()
         if texto.startswith("{") or texto.startswith("["):
             return json.loads(texto)
-        with open(entrada, "r", encoding="utf-8") as archivo:
+        with open(ruta_del_proyecto(entrada), "r", encoding="utf-8") as archivo:
             return json.load(archivo)
     raise TypeError(
         f"El formulario debe ser un dict, un JSON o una ruta; llegó {type(entrada).__name__}"

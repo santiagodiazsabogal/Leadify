@@ -124,7 +124,7 @@
   // backend de leads (contrato SenalBowl) los requiere como campos
   // independientes — ver js/leads.js.
   function isValidEmail(v) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    return /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)*\.[^\s@.]+$/.test(v);
   }
 
   /** Un campo del registro de Leadify: rótulo, input y su mensaje de error. */
@@ -1639,11 +1639,11 @@
    * "(Dirección provisional)" pegado al texto: se quita el paréntesis y se
    * dice con una etiqueta aparte, que se lee ordenada y sigue siendo honesta.
    */
-  var RE_DIR_PROVISIONAL = /\s*\(\s*direcci[oó]n provisional\s*\)\s*/i;
+  var RE_DIR_PROVISIONAL = /\(\s*direcci[oó]n provisional\s*\)/i;
   function direccionHtml(direccion) {
     if (!direccion) return '';
     var provisional = RE_DIR_PROVISIONAL.test(direccion);
-    var limpia = String(direccion).replace(RE_DIR_PROVISIONAL, ' ').replace(/\s+,/g, ',').replace(/\s{2,}/g, ' ').trim();
+    var limpia = String(direccion).replace(RE_DIR_PROVISIONAL, ' ').replace(/\s{2,}/g, ' ').replace(/\s,/g, ',').trim();
     return (
       '<div class="gdf-project-dir">' + esc(limpia) +
       (provisional ? ' <span class="gdf-dir-confirmar">Dirección por confirmar</span>' : '') +
@@ -1852,7 +1852,7 @@
         // El texto viene del tenant con su propia flecha al final (marca.js es
         // generado y no se edita): se le quita y se pone el icono.
         String(txt('fichaOficial', 'Ver ficha oficial en ' + ident('dominio', 'colsubsidio.com')))
-          .replace(/\s*\u2197\s*$/, '') + ' ' + ic('enlace-externo') +
+          .replace(/\u2197\s*$/, '').trimEnd() + ' ' + ic('enlace-externo') +
         '</a>'
       : '';
     // Recorrido del EDIFICIO (zonas comunes, fachada...), distinto del que

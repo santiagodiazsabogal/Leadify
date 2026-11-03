@@ -47,7 +47,7 @@ from Model.modelo import (
     primer_filtro,
 )
 
-from Model.rutas import RUTA_CLIENTES
+from Model.rutas import RUTA_CLIENTES, ruta_del_proyecto
 INTERACCIONES_POR_CLIENTE = 8
 
 N_REGISTROS = 4000
@@ -350,7 +350,7 @@ def generar(n=N_REGISTROS, semilla=None, ruta_modelo=RUTA_MODELO,
             cuenta[id_proyecto] += 1
             rellenados += 1
 
-    rng.shuffle(historial)
+    rng.shuffle(historial)  # NOSONAR: datos simulados reproducibles con semilla; no es criptografía
 
     salida = {
         "meta": {
@@ -406,7 +406,7 @@ def _reporte(salida, ruta_salida):
 
 def main():
     parser = argparse.ArgumentParser(description="Genera el historial simulado de interacciones.")
-    parser.add_argument("--clientes", default=RUTA_CLIENTES,
+    parser.add_argument("--clientes", type=ruta_del_proyecto, default=RUTA_CLIENTES,
                         help="Clientes de simulacion/. Por defecto, los 1.000 de los arquetipos.")
     parser.add_argument("--interacciones", type=int, default=INTERACCIONES_POR_CLIENTE,
                         help="Eventos por cliente (1.000 x 8 = 8.000 registros).")
@@ -415,8 +415,8 @@ def main():
     parser.add_argument("--n", type=int, default=N_REGISTROS,
                         help="Usuarios a simular en modo --demografico.")
     parser.add_argument("--semilla", type=int, default=None, help="Semilla para reproducibilidad.")
-    parser.add_argument("--modelo", default=RUTA_MODELO, help="Ruta de proyectos_model.json.")
-    parser.add_argument("--salida", default=RUTA_HISTORIAL, help="Ruta del historial de salida.")
+    parser.add_argument("--modelo", type=ruta_del_proyecto, default=RUTA_MODELO, help="Ruta de proyectos_model.json.")
+    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_HISTORIAL, help="Ruta del historial de salida.")
     parser.add_argument("--min-por-proyecto", type=int, default=MIN_POR_PROYECTO,
                         help="Interacciones mínimas garantizadas por proyecto.")
     args = parser.parse_args()

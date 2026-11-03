@@ -66,7 +66,7 @@ from Model.catalogos import (
     nombre_localidad,
     normalizar_texto,
 )
-from Model.rutas import RUTA_BARRIOS_GEO, RUTA_BARRIOS_GRAFO, RUTA_BARRIOS_VECINOS_TXT
+from Model.rutas import RUTA_BARRIOS_GEO, RUTA_BARRIOS_GRAFO, RUTA_BARRIOS_VECINOS_TXT, ruta_del_proyecto
 
 # Capa oficial "Sector Catastral" (Datos Abiertos Bogotá / IDECA). Es la misma
 # capa con la que se calculó el TXT de vecinos, así que los códigos coinciden
@@ -447,8 +447,8 @@ def barrios_por_distancia(origen, km_maximo=None):
 # ===========================================================================
 _RE_LOCALIDAD = re.compile(r"^LOCALIDAD (\d+) - ")
 _RE_BARRIO = re.compile(r"^(\d{6})  (.+)$")
-_RE_VECINOS = re.compile(r"^\s+Vecinos \((\d+)\):\s*(.*)$")
-_RE_OTRA_LOCALIDAD = re.compile(r"^(.*?)\s*\(L(\d+)\)$")
+_RE_VECINOS = re.compile(r"^\s+Vecinos \((\d+)\):(.*)$")
+_RE_OTRA_LOCALIDAD = re.compile(r"^(.*)\(L(\d+)\)$")
 
 
 def parsear_vecinos_txt(ruta=RUTA_BARRIOS_VECINOS_TXT, poligonos=None):
@@ -515,7 +515,7 @@ def parsear_vecinos_txt(ruta=RUTA_BARRIOS_VECINOS_TXT, poligonos=None):
         lista = _RE_VECINOS.match(linea)
         if lista and codigo_actual is not None:
             esperados = int(lista.group(1))
-            acumulado = [lista.group(2)]
+            acumulado = [lista.group(2).lstrip()]
             continue
         if codigo_actual is not None and acumulado and linea.startswith("      "):
             acumulado.append(linea.strip())
@@ -726,9 +726,9 @@ def construir(ruta_txt=RUTA_BARRIOS_VECINOS_TXT, ruta_geo=RUTA_BARRIOS_GEO,
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Compila el grafo de barrios desde el TXT de vecinos.")
-    parser.add_argument("--txt", default=RUTA_BARRIOS_VECINOS_TXT)
-    parser.add_argument("--geo", default=RUTA_BARRIOS_GEO)
-    parser.add_argument("--salida", default=RUTA_BARRIOS_GRAFO)
+    parser.add_argument("--txt", type=ruta_del_proyecto, default=RUTA_BARRIOS_VECINOS_TXT)
+    parser.add_argument("--geo", type=ruta_del_proyecto, default=RUTA_BARRIOS_GEO)
+    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_BARRIOS_GRAFO)
     parser.add_argument("--sin-descargar", action="store_true",
                         help="no bajar la geometria oficial aunque falte (sin centroides)")
     args = parser.parse_args(argv)

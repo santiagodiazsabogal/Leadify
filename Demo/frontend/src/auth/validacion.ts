@@ -10,7 +10,7 @@ export const USUARIO_MAX = 30;
 
 // Minúsculas, números, punto, guion y guion bajo; empieza y termina en letra o número.
 const RE_USUARIO = /^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/;
-const RE_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const RE_CORREO = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)*\.[^\s@.]{2,}$/;
 
 export function normalizarCorreo(correo: string): string {
   return String(correo || '').trim().toLowerCase();
@@ -70,17 +70,25 @@ export function fuerzaClave(clave: string): Fuerza {
   return { nivel, texto: textos[nivel] };
 }
 
+/** Quita los puntos, guiones y guiones bajos del final (y del principio si `inicio`), sin expresiones regulares. */
+function recortarSeparadores(texto: string, inicio = true): string {
+  const separadores = '._-';
+  let desde = 0;
+  let hasta = texto.length;
+  while (inicio && desde < hasta && separadores.includes(texto[desde])) desde++;
+  while (hasta > desde && separadores.includes(texto[hasta - 1])) hasta--;
+  return texto.slice(desde, hasta);
+}
+
 /** "Constructora Ñandú S.A.S." -> "constructora-nandu-s.a.s" (para sugerir un usuario a quien entra con Google). */
 export function sugerirUsuario(base: string): string {
-  const limpio = String(base || '')
+  const normalizado = String(base || '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, '-')
-    .replace(/-{2,}/g, '-')
-    .replace(/^[._-]+|[._-]+$/g, '')
-    .slice(0, USUARIO_MAX)
-    .replace(/[._-]+$/g, '');
+    .replace(/-{2,}/g, '-');
+  const limpio = recortarSeparadores(recortarSeparadores(normalizado).slice(0, USUARIO_MAX), false);
   return limpio.length >= USUARIO_MIN ? limpio : (limpio + '-empresa').replace(/^-/, '');
 }
 

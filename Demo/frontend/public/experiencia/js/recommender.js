@@ -280,7 +280,7 @@
   // fitness con salón de spinning y salón TRX"). Para la razón se usa solo la
   // cabeza; el nombre completo ya aparece en el bloque de zonas comunes.
   function nombreCorto(label) {
-    var s = String(label || '').split(/\s+con\s+|\s+-\s+|,/)[0].trim();
+    var s = String(label || '').replace(/\s+/g, ' ').split(/ con | - |,/)[0].trim();
     // Solo se baja la inicial: pasarlo entero a minúsculas rompía las siglas
     // ("Salón TRX" -> "salón trx", que parece una errata).
     return s ? s.charAt(0).toLowerCase() + s.slice(1) : '';

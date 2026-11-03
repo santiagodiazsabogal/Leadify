@@ -39,7 +39,7 @@ from Model.modelo import (
     primer_filtro,
 )
 
-from Model.rutas import RUTA_RESPUESTA, RUTA_USUARIO_DEMO, asegurar_salidas
+from Model.rutas import RUTA_RESPUESTA, RUTA_USUARIO_DEMO, asegurar_salidas, ruta_del_proyecto
 
 
 def recomendar(path_user_info, ruta_modelo=RUTA_MODELO, ruta_historial=RUTA_HISTORIAL,
@@ -292,13 +292,13 @@ def main():
         pass
 
     parser = argparse.ArgumentParser(description="Recomendador de proyectos inmobiliarios.")
-    parser.add_argument("--usuario", default=RUTA_USUARIO_DEMO,
+    parser.add_argument("--usuario", type=ruta_del_proyecto, default=RUTA_USUARIO_DEMO,
                         help="Ruta del JSON con la información del usuario.")
-    parser.add_argument("--modelo", default=RUTA_MODELO,
+    parser.add_argument("--modelo", type=ruta_del_proyecto, default=RUTA_MODELO,
                         help="Ruta de proyectos_model.json.")
-    parser.add_argument("--historial", default=RUTA_HISTORIAL,
+    parser.add_argument("--historial", type=ruta_del_proyecto, default=RUTA_HISTORIAL,
                         help="Ruta del histórico simulado de interacciones.")
-    parser.add_argument("--salida", default=RUTA_LLAMATIVOS,
+    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_LLAMATIVOS,
                         help="Ruta del JSON final de recomendaciones.")
     parser.add_argument("--top", type=int, default=TOP_N, help="Cantidad de recomendaciones.")
     parser.add_argument("--semilla", type=int, default=None,
@@ -307,7 +307,7 @@ def main():
                         help="Regenera proyectos_model.json desde el seed antes de recomendar.")
     parser.add_argument("--json", action="store_true",
                         help="Imprime solo el JSON de apartamentos (para consumo por API).")
-    parser.add_argument("--respuesta", default=RUTA_RESPUESTA,
+    parser.add_argument("--respuesta", type=ruta_del_proyecto, default=RUTA_RESPUESTA,
                         help="Ruta del JSON de respuesta con los apartamentos.")
     args = parser.parse_args()
 

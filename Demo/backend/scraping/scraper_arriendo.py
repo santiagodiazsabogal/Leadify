@@ -43,7 +43,7 @@ from scraping.scraper_projects import (
 )
 
 from Model.catalogos import normalizar_texto
-from Model.rutas import RUTA_ARRIENDO
+from Model.rutas import RUTA_ARRIENDO, ruta_del_proyecto
 
 BASE_URL = "https://www.fincaraiz.com.co"
 
@@ -164,7 +164,7 @@ def _huella(registro):
     if not direccion:
         # Sin dirección no hay con qué comparar: se usa el id, que nunca
         # choca, para que el registro no se descarte por parecido.
-        return ("sin-direccion", registro.get("id_origen"))
+        return ("sin-direccion", registro.get("id_origen"), None, None)
     return (
         registro.get("tipo_inmueble"),
         direccion,
@@ -276,7 +276,7 @@ def main(argv=None):
         "--tope", type=int, default=TOPE_POR_DEFECTO,
         help="maximo de inmuebles en total entre todos los tipos (demo: 50)",
     )
-    parser.add_argument("--salida", default=RUTA_ARRIENDO, help="ruta del JSON de salida")
+    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_ARRIENDO, help="ruta del JSON de salida")
     args = parser.parse_args(argv)
 
     catalogo, descartados = construir_catalogo(tipos=args.tipo, tope_total=args.tope)

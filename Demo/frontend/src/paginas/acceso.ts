@@ -104,7 +104,9 @@ function errorFormulario(texto: string): void {
 }
 
 function irA(destino: string): void {
-  location.assign(destino);
+  // Solo se navega dentro de este sitio: si el destino resolviera a otro origen, se va al inicio.
+  const url = new URL(destino, location.origin);
+  location.assign(url.origin === location.origin ? url.pathname + url.search + url.hash : '/inicio/');
 }
 
 // ---------------------------------------------------------------- comportamiento de cada vista

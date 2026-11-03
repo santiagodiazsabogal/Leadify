@@ -48,6 +48,7 @@ from Model.simulacion.generar_historial import (  # noqa: E402
     cargar_clientes,
     elegir_proyecto,
 )
+from Model.rutas import ruta_del_proyecto  # noqa: E402
 from Model.modelo import (  # noqa: E402
     RUTA_HISTORIAL,
     RUTA_MODELO,
@@ -169,8 +170,8 @@ def main():
     parser.add_argument("--clientes-prueba", type=int, default=CLIENTES_PRUEBA,
                         help="Clientes de prueba a generar (se reparten entre los 10 arquetipos).")
     parser.add_argument("--semilla", type=int, default=SEMILLA_PRUEBA)
-    parser.add_argument("--modelo", default=RUTA_MODELO)
-    parser.add_argument("--historial", default=RUTA_HISTORIAL)
+    parser.add_argument("--modelo", type=ruta_del_proyecto, default=RUTA_MODELO)
+    parser.add_argument("--historial", type=ruta_del_proyecto, default=RUTA_HISTORIAL)
     parser.add_argument("--cota", type=int, default=None,
                         help="Aplica Cota_minimaBG con esta cota en COP "
                              f"(la de produccion es {COTA_MINIMA_COP}). "

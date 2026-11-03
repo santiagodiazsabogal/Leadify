@@ -20,7 +20,7 @@ from urllib.parse import unquote
 
 # [texto](destino) — se ignoran los que llevan protocolo y los anclajes.
 PATRON = re.compile(r"\[([^\]]*)\]\(([^)\s]+)\)")
-EXTERNOS = ("http://", "https://", "mailto:", "#")
+EXTERNO = re.compile(r"^(?:https?://|mailto:|#)")
 SALTAR = {".git", "node_modules", "__pycache__", ".venv", "venv"}
 
 
@@ -42,7 +42,7 @@ def main() -> int:
                 continue
             archivos += 1
             for etiqueta, destino in PATRON.findall(texto):
-                if destino.startswith(EXTERNOS):
+                if EXTERNO.match(destino):
                     continue
                 revisados += 1
                 limpio = unquote(destino.split("#")[0])

@@ -219,7 +219,6 @@
       plano: src,
       proyecto: ref ? ref.proyecto.name : null,
       localidad: ref ? ref.proyecto.localidad : null,
-      vis: ref ? !!ref.proyecto.vis : false,
       tipologia: ref ? ref.tipologia.nombre : null,
       area: ref ? ref.tipologia.area : null,
       areaPrivada: resumen ? resumen.areaPrivada : null,
@@ -376,7 +375,7 @@
     }
 
     if (a.personas !== undefined && x.area) {
-      var hogar = (a.personas === '4+' ? 4 : parseInt(a.personas, 10) || 0) + 1;
+      var hogar = (a.personas === '4+' ? 4 : Number.parseInt(a.personas, 10) || 0) + 1;
       var m2 = x.area / hogar;
       s += m2 >= 22 ? 10 : m2 >= 18 ? 5 : -Math.min(16, Math.round((18 - m2) / 1.2));
     }

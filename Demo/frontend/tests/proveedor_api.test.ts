@@ -112,6 +112,6 @@ describe('proveedor api', () => {
 
   it('salir no lanza aunque falle la red', async () => {
     const { f } = falso(['red']);
-    await new ProveedorApi({ fetch: f }).salir();
+    await assert.doesNotReject(new ProveedorApi({ fetch: f }).salir());
   });
 });

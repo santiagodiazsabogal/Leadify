@@ -240,8 +240,8 @@
     // data.js.
     var stepTotal = qList.length;
 
-    var nHab = state.answers.habitaciones === '3+' ? 3 : parseInt(state.answers.habitaciones || '2', 10);
-    var nPers = state.answers.personas === '4+' ? 4 : parseInt(state.answers.personas || '0', 10);
+    var nHab = state.answers.habitaciones === '3+' ? 3 : Number.parseInt(state.answers.habitaciones || '2', 10);
+    var nPers = state.answers.personas === '4+' ? 4 : Number.parseInt(state.answers.personas || '0', 10);
     // El encaje con el catalogo, EN VIVO y de verdad: sale del mismo motor
     // que decide las recomendaciones (ver compatDe en matching.js). Antes
     // era `42 + (answered/stepTotal)*55`, o sea el progreso del quiz
@@ -600,7 +600,7 @@
         break;
 
       case 'verTipologia':
-        state.tipologiaActiva[ds.proyecto] = parseInt(ds.idx, 10) || 0;
+        state.tipologiaActiva[ds.proyecto] = Number.parseInt(ds.idx, 10) || 0;
         break;
 
       case 'goSeleccion':
@@ -615,7 +615,7 @@
         var porPag = window.GDF.recommender.POR_PAGINA || 6;
         var cuantas = Math.max(1, Math.ceil(((state.reco.items || []).length) / porPag));
         var destino = Number(ds && ds.pagina);
-        if (isNaN(destino)) return false;
+        if (Number.isNaN(destino)) return false;
         destino = Math.min(Math.max(destino, 0), cuantas - 1);
         if (destino === state.recoPagina) return false;
         state.recoPagina = destino;
@@ -629,7 +629,7 @@
         })[0];
         var fotos = (inmVisor && inmVisor.imagenes) || [];
         if (!fotos.length) return false;
-        var desde = parseInt(ds.idx, 10) || 0;
+        var desde = Number.parseInt(ds.idx, 10) || 0;
         state.visor = {
           id: String(ds.inmueble),
           nombre: inmVisor.nombre || '',
@@ -649,7 +649,7 @@
         // Circular: desde la última se vuelve a la primera. Con 20 fotos,
         // toparse con una flecha muerta se siente como que algo falló.
         var total = state.visor.fotos.length;
-        var paso = parseInt(ds.paso, 10) || 1;
+        var paso = Number.parseInt(ds.paso, 10) || 1;
         state.visor.i = (state.visor.i + paso + total) % total;
         break;
       }
@@ -660,7 +660,7 @@
         var porPagA = window.GDF.recommender.POR_PAGINA || 6;
         var cuantasA = Math.max(1, Math.ceil(((state.arriendo.items || []).length) / porPagA));
         var destinoA = Number(ds && ds.pagina);
-        if (isNaN(destinoA)) return false;
+        if (Number.isNaN(destinoA)) return false;
         destinoA = Math.min(Math.max(destinoA, 0), cuantasA - 1);
         if (destinoA === state.arriendoPagina) return false;
         state.arriendoPagina = destinoA;
@@ -703,13 +703,13 @@
       ? {
           nombre: nombre.length >= 2,
           apellido: apellido.length >= 2,
-          correo: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo),
+          correo: /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)*\.[^\s@.]{2,}$/.test(correo),
           telefono: digitos.length === 10,
         }
       : {
           nombre: !!nombre,
           apellido: !!apellido,
-          correo: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo),
+          correo: /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)*\.[^\s@.]+$/.test(correo),
           telefono: !!state.telefono.trim(),
         };
     v.consent = !!state.consent;

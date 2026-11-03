@@ -26,6 +26,7 @@ Convención:
 from __future__ import annotations
 
 import os
+from argparse import ArgumentTypeError
 
 # Model/ -> backend/ -> raíz del repo
 DIR_MODEL = os.path.dirname(os.path.abspath(__file__))
@@ -74,3 +75,25 @@ def asegurar_salidas():
     """Crea `backend/salidas/` si no existe. La llaman los que escriben ahí."""
     os.makedirs(DIR_SALIDAS, exist_ok=True)
     return DIR_SALIDAS
+
+
+class RutaFueraDelProyecto(ArgumentTypeError, ValueError):
+    """La ruta recibida por consola apunta fuera de la carpeta del proyecto."""
+
+
+def ruta_del_proyecto(texto):
+    """Valida una ruta que llega por consola y la devuelve absoluta.
+
+    Los scripts leen y escriben los archivos que les indica quien los corre. Esa ruta tiene que quedar dentro de
+    `Demo/`: así un `--salida ../../algo` no puede escribir fuera del repositorio. Se resuelven los `..` y los
+    enlaces antes de comparar. Sirve como `type=` de argparse.
+    """
+    real = os.path.realpath(texto)
+    raiz = os.path.realpath(DIR_RAIZ)
+    try:
+        dentro = os.path.normcase(os.path.commonpath([real, raiz])) == os.path.normcase(raiz)
+    except ValueError:  # otro disco en Windows
+        dentro = False
+    if not dentro:
+        raise RutaFueraDelProyecto(f"La ruta debe quedar dentro del proyecto ({raiz}): {texto}")
+    return real
