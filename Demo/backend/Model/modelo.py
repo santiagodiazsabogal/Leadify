@@ -53,7 +53,7 @@ from Model.cota_minima import evaluar_esfuerzo
 
 # Las rutas salen de `Model/rutas.py`, que es el único sitio que sabe dónde
 # vive cada archivo del backend.
-from Model.rutas import RUTA_HISTORIAL, RUTA_LLAMATIVOS, RUTA_MODELO, asegurar_salidas, ruta_del_proyecto
+from Model.rutas import RUTA_HISTORIAL, RUTA_LLAMATIVOS, RUTA_MODELO, asegurar_salidas
 
 # ---------------------------------------------------------------------------
 # Parámetros del filtro duro
@@ -291,7 +291,6 @@ def leer_info_user(path_user_info):
             escribir un archivo temporal solo para invocar al modelo:
               - dict ya deserializado (el payload que manda la API)
               - string con el JSON serializado
-              - ruta a un archivo .json
 
     Returns:
         (usuario_modelo, usuario_segmentado, usuario_info_contacto_v1)
@@ -435,9 +434,10 @@ def leer_info_user(path_user_info):
 def _cargar_formulario(entrada):
     """Normaliza la entrada del formulario a un dict.
 
-    El front manda un payload JSON por HTTP; la CLI manda una ruta. Aceptar
-    las dos evita que la capa HTTP tenga que escribir un archivo temporal
-    solo para poder llamar al modelo.
+    El front manda un payload JSON por HTTP; la CLI lee el archivo y manda el
+    dict. Aceptar también el JSON como texto evita que la capa HTTP tenga que
+    armar un dict aparte. Una ruta a un archivo NO se acepta aquí: abrir un
+    archivo que indica quien llama es trabajo de la consola (`pipeline.main`).
     """
     if isinstance(entrada, (dict, list)):
         return entrada
@@ -447,10 +447,9 @@ def _cargar_formulario(entrada):
         texto = entrada.strip()
         if texto.startswith("{") or texto.startswith("["):
             return json.loads(texto)
-        with open(ruta_del_proyecto(entrada), "r", encoding="utf-8") as archivo:
-            return json.load(archivo)
+        raise ValueError("El formulario en texto tiene que ser un JSON (empieza por { o [).")
     raise TypeError(
-        f"El formulario debe ser un dict, un JSON o una ruta; llegó {type(entrada).__name__}"
+        f"El formulario debe ser un dict o un JSON; llegó {type(entrada).__name__}"
     )
 
 

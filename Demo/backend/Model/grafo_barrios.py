@@ -66,7 +66,7 @@ from Model.catalogos import (
     nombre_localidad,
     normalizar_texto,
 )
-from Model.rutas import RUTA_BARRIOS_GEO, RUTA_BARRIOS_GRAFO, RUTA_BARRIOS_VECINOS_TXT, ruta_del_proyecto
+from Model.rutas import RUTA_BARRIOS_GEO, RUTA_BARRIOS_GRAFO, RUTA_BARRIOS_VECINOS_TXT
 
 # Capa oficial "Sector Catastral" (Datos Abiertos Bogotá / IDECA). Es la misma
 # capa con la que se calculó el TXT de vecinos, así que los códigos coinciden
@@ -726,13 +726,10 @@ def construir(ruta_txt=RUTA_BARRIOS_VECINOS_TXT, ruta_geo=RUTA_BARRIOS_GEO,
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Compila el grafo de barrios desde el TXT de vecinos.")
-    parser.add_argument("--txt", type=ruta_del_proyecto, default=RUTA_BARRIOS_VECINOS_TXT)
-    parser.add_argument("--geo", type=ruta_del_proyecto, default=RUTA_BARRIOS_GEO)
-    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_BARRIOS_GRAFO)
     parser.add_argument("--sin-descargar", action="store_true",
                         help="no bajar la geometria oficial aunque falte (sin centroides)")
     args = parser.parse_args(argv)
-    construir(args.txt, args.geo, args.salida, descargar=not args.sin_descargar)
+    construir(RUTA_BARRIOS_VECINOS_TXT, RUTA_BARRIOS_GEO, RUTA_BARRIOS_GRAFO, descargar=not args.sin_descargar)
 
 
 if __name__ == "__main__":

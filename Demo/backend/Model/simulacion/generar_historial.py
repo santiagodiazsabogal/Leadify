@@ -47,7 +47,7 @@ from Model.modelo import (
     primer_filtro,
 )
 
-from Model.rutas import RUTA_CLIENTES, ruta_del_proyecto
+from Model.rutas import RUTA_CLIENTES
 INTERACCIONES_POR_CLIENTE = 8
 
 N_REGISTROS = 4000
@@ -350,7 +350,11 @@ def generar(n=N_REGISTROS, semilla=None, ruta_modelo=RUTA_MODELO,
             cuenta[id_proyecto] += 1
             rellenados += 1
 
-    rng.shuffle(historial)  # NOSONAR: datos simulados reproducibles con semilla; no es criptografía
+    # Fisher-Yates: el mismo orden que daba `rng.shuffle` con la misma semilla, para que el historial versionado siga
+    # siendo reproducible.
+    for i in range(len(historial) - 1, 0, -1):
+        j = rng.randrange(i + 1)
+        historial[i], historial[j] = historial[j], historial[i]
 
     salida = {
         "meta": {
@@ -406,8 +410,6 @@ def _reporte(salida, ruta_salida):
 
 def main():
     parser = argparse.ArgumentParser(description="Genera el historial simulado de interacciones.")
-    parser.add_argument("--clientes", type=ruta_del_proyecto, default=RUTA_CLIENTES,
-                        help="Clientes de simulacion/. Por defecto, los 1.000 de los arquetipos.")
     parser.add_argument("--interacciones", type=int, default=INTERACCIONES_POR_CLIENTE,
                         help="Eventos por cliente (1.000 x 8 = 8.000 registros).")
     parser.add_argument("--demografico", action="store_true",
@@ -415,14 +417,12 @@ def main():
     parser.add_argument("--n", type=int, default=N_REGISTROS,
                         help="Usuarios a simular en modo --demografico.")
     parser.add_argument("--semilla", type=int, default=None, help="Semilla para reproducibilidad.")
-    parser.add_argument("--modelo", type=ruta_del_proyecto, default=RUTA_MODELO, help="Ruta de proyectos_model.json.")
-    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_HISTORIAL, help="Ruta del historial de salida.")
     parser.add_argument("--min-por-proyecto", type=int, default=MIN_POR_PROYECTO,
                         help="Interacciones mínimas garantizadas por proyecto.")
     args = parser.parse_args()
-    generar(args.n, semilla=args.semilla, ruta_modelo=args.modelo,
-            ruta_salida=args.salida, min_por_proyecto=args.min_por_proyecto,
-            ruta_clientes=None if args.demografico else args.clientes,
+    generar(args.n, semilla=args.semilla, ruta_modelo=RUTA_MODELO,
+            ruta_salida=RUTA_HISTORIAL, min_por_proyecto=args.min_por_proyecto,
+            ruta_clientes=None if args.demografico else RUTA_CLIENTES,
             interacciones_por_cliente=args.interacciones)
 
 

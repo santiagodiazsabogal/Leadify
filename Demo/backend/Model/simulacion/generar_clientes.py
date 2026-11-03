@@ -40,7 +40,6 @@ from Model.catalogos import ZONAS_COMUNES, nombre_localidad, nombre_tipo_viviend
 from Model.simulacion.arquetipos import ARQUETIPOS, validar  # noqa: E402
 
 from Model.rutas import RUTA_CLIENTES as RUTA_SALIDA
-from Model.rutas import ruta_del_proyecto
 VARIACIONES = 100
 
 # Cuánto se deja derivar cada variación de su arquetipo. Sin esta deriva las
@@ -210,9 +209,8 @@ def main():
                         help="Variaciones por arquetipo (por defecto 100).")
     parser.add_argument("--semilla", type=int, default=None,
                         help="Semilla para reproducibilidad.")
-    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_SALIDA, help="Ruta del JSON de salida.")
     args = parser.parse_args()
-    generar(variaciones=args.variaciones, semilla=args.semilla, ruta_salida=args.salida)
+    generar(variaciones=args.variaciones, semilla=args.semilla, ruta_salida=RUTA_SALIDA)
 
 
 if __name__ == "__main__":

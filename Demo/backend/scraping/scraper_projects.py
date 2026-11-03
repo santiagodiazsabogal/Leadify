@@ -97,7 +97,6 @@ from Model.rutas import (
     DIR_IMAGENES,
     RUTA_CATALOGO as RUTA_SALIDA,
     RUTA_LOCALIDADES_GEO,
-    ruta_del_proyecto,
 )
 
 # Límites oficiales de las 20 localidades (Datos Abiertos Bogotá). Se usan solo
@@ -2087,7 +2086,6 @@ def main(argv=None):
         "--fuente", nargs="+", choices=sorted(FUENTES), default=sorted(FUENTES),
         help="constructoras a consultar (por defecto, las cuatro)",
     )
-    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_SALIDA, help="ruta del JSON de salida")
     parser.add_argument(
         "--no-imagenes", action="store_true", help="no descargar las imágenes"
     )
@@ -2106,7 +2104,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     if args.solo_barrios:
-        return _reasignar_barrios(args.salida)
+        return _reasignar_barrios(RUTA_SALIDA)
 
     catalogo, descartados, fusiones = construir_catalogo(
         fuentes=args.fuente, usar_coordenadas=not args.sin_coordenadas
@@ -2130,9 +2128,9 @@ def main(argv=None):
         "descartados": descartados,
         "fusionados": fusiones,
     }
-    with open(args.salida, "w", encoding="utf-8") as archivo:
+    with open(RUTA_SALIDA, "w", encoding="utf-8") as archivo:
         json.dump(salida, archivo, ensure_ascii=False, indent=2)
-    print(f"\n[salida] {args.salida}")
+    print(f"\n[salida] {RUTA_SALIDA}")
 
     if not args.no_imagenes:
         descargar_imagenes(catalogo, rehacer=args.rehacer_imagenes)

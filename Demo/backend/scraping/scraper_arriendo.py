@@ -43,7 +43,7 @@ from scraping.scraper_projects import (
 )
 
 from Model.catalogos import normalizar_texto
-from Model.rutas import RUTA_ARRIENDO, ruta_del_proyecto
+from Model.rutas import RUTA_ARRIENDO
 
 BASE_URL = "https://www.fincaraiz.com.co"
 
@@ -276,7 +276,6 @@ def main(argv=None):
         "--tope", type=int, default=TOPE_POR_DEFECTO,
         help="maximo de inmuebles en total entre todos los tipos (demo: 50)",
     )
-    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_ARRIENDO, help="ruta del JSON de salida")
     args = parser.parse_args(argv)
 
     catalogo, descartados = construir_catalogo(tipos=args.tipo, tope_total=args.tope)
@@ -296,9 +295,9 @@ def main(argv=None):
         "inmuebles": catalogo,
         "descartados": descartados,
     }
-    with open(args.salida, "w", encoding="utf-8") as archivo:
+    with open(RUTA_ARRIENDO, "w", encoding="utf-8") as archivo:
         json.dump(salida, archivo, ensure_ascii=False, indent=2)
-    print(f"\n[salida] {args.salida} ({len(catalogo)} inmuebles, {len(descartados)} descartados)")
+    print(f"\n[salida] {RUTA_ARRIENDO} ({len(catalogo)} inmuebles, {len(descartados)} descartados)")
     return 0
 
 

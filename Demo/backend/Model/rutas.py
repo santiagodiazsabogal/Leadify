@@ -81,19 +81,26 @@ class RutaFueraDelProyecto(ArgumentTypeError, ValueError):
     """La ruta recibida por consola apunta fuera de la carpeta del proyecto."""
 
 
-def ruta_del_proyecto(texto):
-    """Valida una ruta que llega por consola y la devuelve absoluta.
+_CARPETAS_AJENAS = {".git", "node_modules", "__pycache__", ".venv", "venv"}
 
-    Los scripts leen y escriben los archivos que les indica quien los corre. Esa ruta tiene que quedar dentro de
-    `Demo/`: así un `--salida ../../algo` no puede escribir fuera del repositorio. Se resuelven los `..` y los
-    enlaces antes de comparar. Sirve como `type=` de argparse.
+
+def _archivos_del_proyecto():
+    """Los archivos que hay hoy dentro de `Demo/`, sin dependencias ni caché."""
+    for carpeta, subcarpetas, archivos in os.walk(os.path.realpath(DIR_RAIZ)):
+        subcarpetas[:] = [s for s in subcarpetas if s not in _CARPETAS_AJENAS]
+        for archivo in archivos:
+            yield os.path.join(carpeta, archivo)
+
+
+def ruta_del_proyecto(texto):
+    """Resuelve la ruta de un archivo que llega por consola a uno que YA existe en el proyecto.
+
+    En vez de dejar que una ruta escrita a mano llegue a `open()`, se busca entre los archivos de `Demo/` el que ella
+    señala y se devuelve ese. Lo que no es un archivo del proyecto (`../../x`, otro disco, uno que no existe) se
+    rechaza. Sirve como `type=` de argparse.
     """
-    real = os.path.realpath(texto)
-    raiz = os.path.realpath(DIR_RAIZ)
-    try:
-        dentro = os.path.normcase(os.path.commonpath([real, raiz])) == os.path.normcase(raiz)
-    except ValueError:  # otro disco en Windows
-        dentro = False
-    if not dentro:
-        raise RutaFueraDelProyecto(f"La ruta debe quedar dentro del proyecto ({raiz}): {texto}")
-    return real
+    pedido = os.path.normcase(os.path.realpath(texto))
+    for conocido in _archivos_del_proyecto():
+        if os.path.normcase(conocido) == pedido:
+            return conocido
+    raise RutaFueraDelProyecto(f"Tiene que ser un archivo que exista dentro del proyecto ({os.path.realpath(DIR_RAIZ)}): {texto}")

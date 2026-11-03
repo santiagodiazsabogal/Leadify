@@ -51,7 +51,7 @@ def recomendar(path_user_info, ruta_modelo=RUTA_MODELO, ruta_historial=RUTA_HIST
 
     Args:
         path_user_info: el formulario del usuario, como dict (el payload que
-            manda el front), como string JSON o como ruta a un archivo.
+            manda el front) o como string JSON.
         preparar: fuerza la regeneración de `proyectos_model.json` desde el seed.
         cota_cop: diferencia de precio a partir de la cual `Cota_minimaBG`
             invierte dos posiciones del top aunque eso saque al usuario de la
@@ -293,13 +293,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Recomendador de proyectos inmobiliarios.")
     parser.add_argument("--usuario", type=ruta_del_proyecto, default=RUTA_USUARIO_DEMO,
-                        help="Ruta del JSON con la información del usuario.")
-    parser.add_argument("--modelo", type=ruta_del_proyecto, default=RUTA_MODELO,
-                        help="Ruta de proyectos_model.json.")
-    parser.add_argument("--historial", type=ruta_del_proyecto, default=RUTA_HISTORIAL,
-                        help="Ruta del histórico simulado de interacciones.")
-    parser.add_argument("--salida", type=ruta_del_proyecto, default=RUTA_LLAMATIVOS,
-                        help="Ruta del JSON final de recomendaciones.")
+                        help="JSON con la información del usuario (un archivo que exista dentro de Demo/).")
     parser.add_argument("--top", type=int, default=TOP_N, help="Cantidad de recomendaciones.")
     parser.add_argument("--semilla", type=int, default=None,
                         help="Semilla del porcentaje aleatorio (reproducibilidad).")
@@ -307,27 +301,25 @@ def main():
                         help="Regenera proyectos_model.json desde el seed antes de recomendar.")
     parser.add_argument("--json", action="store_true",
                         help="Imprime solo el JSON de apartamentos (para consumo por API).")
-    parser.add_argument("--respuesta", type=ruta_del_proyecto, default=RUTA_RESPUESTA,
-                        help="Ruta del JSON de respuesta con los apartamentos.")
     args = parser.parse_args()
 
+    with open(args.usuario, "r", encoding="utf-8") as archivo:
+        formulario = json.load(archivo)
+
     resultado = recomendar(
-        args.usuario,
-        ruta_modelo=args.modelo,
-        ruta_historial=args.historial,
+        formulario,
         top_n=args.top,
         semilla=args.semilla,
-        ruta_salida=args.salida,
         preparar=args.preparar,
         verbose=not args.json,
     )
-    payload = respuesta_json(resultado, ruta_salida=args.respuesta)
+    payload = respuesta_json(resultado)
 
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        imprimir_reporte(resultado, ruta_salida=args.salida)
-        print(f" Apartamentos en JSON: {os.path.basename(args.respuesta)}\n")
+        imprimir_reporte(resultado)
+        print(f" Apartamentos en JSON: {os.path.basename(RUTA_RESPUESTA)}\n")
     return payload
 
 

@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 
@@ -45,14 +44,13 @@ def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         regenerado = os.path.join(os.path.abspath(tmp), "proyectos_model.json")
         print("Regenerando el catálogo con Model/prep.py...")
-        corrida = subprocess.run(
-            [sys.executable, os.path.join("Model", "prep.py"), "--salida", regenerado],
-            cwd=BACKEND, capture_output=True, text=True,
-        )
-        if corrida.returncode != 0:
-            print("prep.py falló:")
-            print(corrida.stdout[-2000:])
-            print(corrida.stderr[-2000:])
+        sys.path.insert(0, os.path.abspath(BACKEND))
+        from Model import prep  # noqa: E402
+
+        try:
+            prep.preparar(ruta_salida=regenerado, verbose=False)
+        except Exception as error:  # noqa: BLE001
+            print(f"prep.py falló: {type(error).__name__}: {error}")
             return 1
 
         viejo = cargar(COMPROMETIDO)
