@@ -39,7 +39,7 @@ from Model.modelo import (
     primer_filtro,
 )
 
-from Model.rutas import RUTA_RESPUESTA, RUTA_USUARIO_DEMO, asegurar_salidas, ruta_del_proyecto
+from Model.rutas import RUTA_RESPUESTA, RUTA_USUARIO_DEMO, RutaFueraDelProyecto, asegurar_salidas, ruta_del_proyecto
 
 
 def recomendar(path_user_info, ruta_modelo=RUTA_MODELO, ruta_historial=RUTA_HISTORIAL,
@@ -292,7 +292,7 @@ def main():
         pass
 
     parser = argparse.ArgumentParser(description="Recomendador de proyectos inmobiliarios.")
-    parser.add_argument("--usuario", type=ruta_del_proyecto, default=RUTA_USUARIO_DEMO,
+    parser.add_argument("--usuario", default=RUTA_USUARIO_DEMO,
                         help="JSON con la información del usuario (un archivo que exista dentro de Demo/).")
     parser.add_argument("--top", type=int, default=TOP_N, help="Cantidad de recomendaciones.")
     parser.add_argument("--semilla", type=int, default=None,
@@ -303,7 +303,11 @@ def main():
                         help="Imprime solo el JSON de apartamentos (para consumo por API).")
     args = parser.parse_args()
 
-    with open(args.usuario, "r", encoding="utf-8") as archivo:
+    try:
+        ruta_usuario = ruta_del_proyecto(args.usuario)
+    except RutaFueraDelProyecto as error:
+        parser.error(str(error))
+    with open(ruta_usuario, "r", encoding="utf-8") as archivo:
         formulario = json.load(archivo)
 
     resultado = recomendar(

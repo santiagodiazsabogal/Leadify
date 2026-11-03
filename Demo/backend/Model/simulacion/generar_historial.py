@@ -28,10 +28,12 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
 import random
+import secrets
 from collections import Counter
 from datetime import date, timedelta
 
@@ -350,11 +352,11 @@ def generar(n=N_REGISTROS, semilla=None, ruta_modelo=RUTA_MODELO,
             cuenta[id_proyecto] += 1
             rellenados += 1
 
-    # Fisher-Yates: el mismo orden que daba `rng.shuffle` con la misma semilla, para que el historial versionado siga
-    # siendo reproducible.
-    for i in range(len(historial) - 1, 0, -1):
-        j = rng.randrange(i + 1)
-        historial[i], historial[j] = historial[j], historial[i]
+    # Orden que parece aleatorio y se repite con la misma semilla: cada registro se ordena por un hash de
+    # (semilla, posición). Sin semilla, la sal cambia en cada corrida.
+    sal = str(semilla) if semilla is not None else secrets.token_hex(8)
+    orden = sorted(range(len(historial)), key=lambda i: hashlib.sha256(f"{sal}:{i}".encode()).digest())
+    historial = [historial[i] for i in orden]
 
     salida = {
         "meta": {
