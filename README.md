@@ -152,6 +152,7 @@ Leadify/
 ├── Docs/
 │   ├── Dailys/                       Actas de los dailys (Daily1 a Daily5)
 │   ├── Mockups/                      Capturas de las pantallas del formulario
+│   ├── Pruebas/                      Plan de pruebas: 15 casos, resultados y bugs (Azure DevOps)
 │   ├── Guia-de-Usuario.md            Cómo usar el formulario, paso a paso
 │   └── lean-canvas.pdf               Lean canvas del proyecto
 ├── Script/                           Qué scripts hay y cómo se corren, más tres verificaciones
