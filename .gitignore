@@ -18,3 +18,9 @@ Demo/backend/salidas/
 Thumbs.db
 .vscode/
 .idea/
+
+# Cobertura generada por las pruebas
+coverage/
+coverage.xml
+.coverage
+.coveragerc
